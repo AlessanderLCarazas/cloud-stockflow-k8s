@@ -1,0 +1,36 @@
+**To describe a service quota**
+
+The following ``get-service-quota`` example displays details about the specified quota. ::
+
+    aws service-quotas get-service-quota \
+        --service-code ec2 \
+        --quota-code L-1216C47A
+
+Output::
+
+    {
+        "Quota": {
+            "ServiceCode": "ec2",
+            "ServiceName": "Amazon Elastic Compute Cloud (Amazon EC2)",
+            "QuotaArn": "arn:aws:servicequotas:us-west-2:123456789012:ec2/L-1216C47A",
+            "QuotaCode": "L-1216C47A",
+            "QuotaName": "Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances",
+            "Value": 1920.0,
+            "Unit": "None",
+            "Adjustable": true,
+            "GlobalQuota": false,
+            "UsageMetric": {
+                "MetricNamespace": "AWS/Usage",
+                "MetricName": "ResourceCount",
+                "MetricDimensions": {
+                    "Class": "Standard/OnDemand",
+                    "Resource": "vCPU",
+                    "Service": "EC2",
+                    "Type": "Resource"
+                },
+                "MetricStatisticRecommendation": "Maximum"
+            }
+        }
+    }
+
+For more information, see `Viewing service quotas <https://docs.aws.amazon.com/servicequotas/latest/userguide/gs-request-quota.html>`__ in the *Service Quotas User Guide*.

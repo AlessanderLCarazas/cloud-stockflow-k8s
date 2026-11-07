@@ -1,0 +1,29 @@
+**To view details of a comment**
+
+The following ``get-comment`` example displays details of a comment with the system-generated comment ID of ``ff30b348EXAMPLEb9aa670f``. ::
+
+    aws codecommit get-comment \
+        --comment-id ff30b348EXAMPLEb9aa670f
+
+Output::
+
+    {
+        "comment": { 
+            "authorArn": "arn:aws:iam::123456789012:user/Li_Juan",
+            "clientRequestToken": "123Example",
+            "commentId": "ff30b348EXAMPLEb9aa670f",
+            "content": "Whoops - I meant to add this comment to the line, but I don't see how to delete it.",
+            "creationDate": 1508369768.142,
+            "deleted": false,
+            "inReplyTo": "",
+            "lastModifiedDate": 1508369842.278,
+            "callerReactions": [],
+            "reactionCounts": 
+            {
+                "SMILE" : 6,
+                "THUMBSUP" : 1
+            }
+        }
+    }
+
+For more information, see `Comment on a commit in AWS CodeCommit <https://docs.aws.amazon.com/codecommit/latest/userguide/how-to-commit-comment.html#how-to-commit-comment-cli-get-comment-info>`__ in the *AWS CodeCommit User Guide*.

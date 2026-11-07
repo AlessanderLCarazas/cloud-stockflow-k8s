@@ -1,0 +1,48 @@
+**To list the available services**
+
+The following ``list-services`` example lists the services that are available in Service Quotas. ::
+
+    aws service-quotas list-services
+
+Output::
+
+    {
+        "Services": [
+            {
+                "ServiceCode": "AWSCloudMap",
+                "ServiceName": "AWS Cloud Map"
+            },
+            {
+                "ServiceCode": "access-analyzer",
+                "ServiceName": "Access Analyzer"
+            },
+            {
+                "ServiceCode": "acm",
+                "ServiceName": "AWS Certificate Manager (ACM)"
+            },
+            {
+                "ServiceCode": "xray",
+                "ServiceName": "AWS X-Ray"
+            }
+        ]
+    }
+
+You can add the ``--query`` parameter to filter the display to the information that you are interested in. The following example displays only the service codes. ::
+
+    aws service-quotas list-services \
+        --query Services[*].ServiceCode
+
+Output::
+
+    [
+        "AWSCloudMap",
+        "access-analyzer",
+        "acm",
+        "acm-pca",
+        "amplify",
+        "apigateway",
+        "application-autoscaling",
+        "xray"
+    ]
+
+For more information, see `Viewing service quotas <https://docs.aws.amazon.com/servicequotas/latest/userguide/gs-request-quota.html>`__ in the *Service Quotas User Guide*.
