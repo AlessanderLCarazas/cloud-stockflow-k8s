@@ -27,6 +27,7 @@ jobs:
     - name: Ejecutar Pruebas Unitarias (Testing)
       run: |
         cd backend
+        pip install pytest
         pytest tests/
 
     - name: Configurar credenciales de AWS
