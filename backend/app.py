@@ -449,31 +449,59 @@ def k8s_status():
 
             })
 
-        # Eventos recientes
-        events_data = core.list_namespaced_event(
-            namespace,
-            limit=30
-        )
-
+        # Eventos recientes. Si la API de eventos falla, no se interrumpe
+        # el resto de la monitorización (Pods, métricas, Deployments y HPA).
         events = []
 
-        for event in events_data.items:
-            events.append({
-                "type": event.type,
-                "reason": event.reason,
-                "message": event.message,
-                "object": event.involved_object.name,
-                "count": event.count,
-                "last_timestamp": (
-                    event.last_timestamp.isoformat()
-                    if event.last_timestamp else None
-                )
-            })
+        try:
+            events_data = core.list_namespaced_event(
+                namespace=namespace,
+                limit=30,
+                _request_timeout=10
+            )
 
-        events.sort(
-            key=lambda e: e["last_timestamp"] or "",
-            reverse=True
-        )
+            for event in events_data.items:
+                events.append({
+                    "type": event.type,
+                    "reason": event.reason,
+                    "message": event.message,
+                    "object": (
+                        event.involved_object.name
+                        if event.involved_object else None
+                    ),
+                    "count": event.count,
+                    "last_timestamp": (
+                        event.last_timestamp.isoformat()
+                        if event.last_timestamp
+                        else (
+                            event.event_time.isoformat()
+                            if event.event_time
+                            else (
+                                event.metadata.creation_timestamp.isoformat()
+                                if event.metadata.creation_timestamp
+                                else None
+                            )
+                        )
+                    )
+                })
+
+            events.sort(
+                key=lambda e: e["last_timestamp"] or "",
+                reverse=True
+            )
+
+        except ApiException as e:
+            app.logger.error(
+                "No se pudieron consultar los eventos de Kubernetes: "
+                "status=%s reason=%s body=%s",
+                e.status,
+                e.reason,
+                e.body
+            )
+        except Exception:
+            app.logger.exception(
+                "Error inesperado al procesar eventos de Kubernetes"
+            )
 
         return jsonify({
             "status": "ok",
