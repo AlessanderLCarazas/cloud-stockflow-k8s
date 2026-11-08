@@ -50,6 +50,11 @@ def init_db():
 # Inicializar BD al arrancar
 init_db()
 
+# Endpoint para Health Check de Kubernetes (Liveness / Readiness Probes)
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
 @app.route('/api/cuenta', methods=['GET'])
 def obtener_cuenta():
     conn = get_db_connection()
@@ -114,7 +119,6 @@ def transferir():
     finally:
         cur.close()
         conn.close()
-
 
 @app.route('/api/stress', methods=['GET'])
 def stress():
