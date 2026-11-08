@@ -1,63 +1,97 @@
-name: CI/CD Pipeline AWS ECR
+name: CI/CD Pipeline AWS ECR & Kubernetes
 
 on:
   push:
-    branches:
-      - master
-      - main
+    branches: [ "master" ]
 
 jobs:
-  test-and-build:
+  test-build-and-deploy:
     runs-on: ubuntu-22.04
 
     steps:
+    # 1. Clonar el repositorio
     - name: Checkout del código
       uses: actions/checkout@v4
 
-    - name: Configurar Python
+    # 2. Configurar entorno Python
+    - name: Configurar Python 3.9
       uses: actions/setup-python@v5
       with:
         python-version: '3.9'
 
-    - name: Instalar dependencias del Backend
+    # 3. Instalar dependencias y ejecutar pruebas unitarias
+    - name: Instalar dependencias y ejecutar pruebas (CI)
       run: |
-        cd backend
-        pip install -r requirements.txt
+        python -m pip install --upgrade pip
+        pip install pytest flask
+        pytest
 
-    - name: Ejecutar Pruebas Unitarias (Testing)
-      run: |
-        cd backend
-        pip install pytest
-        pytest tests/
-
+    # 4. Autenticarse en AWS
     - name: Configurar credenciales de AWS
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: us-east-1
 
-    - name: Iniciar sesión en Amazon ECR
+    # 5. Iniciar sesión en Amazon ECR
+    - name: Login en Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Construir y subir imagen del Backend
+    # 6. Construir y publicar las imágenes Docker
+    - name: Build y Push de Backend a ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: cloud-stockflow-backend
         IMAGE_TAG: latest
       run: |
-        cd backend
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-    - name: Construir y subir imagen del Frontend
+    - name: Build y Push de Frontend a ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: cloud-stockflow-frontend
         IMAGE_TAG: latest
       run: |
-        cd frontend
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+    # 7. DESPLIEGUE CONTINUO (CD): Actualizar Kubernetes en EC2 vía SSH
+    - name: Desplegar en clúster k3s (EC2)
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          # Configurar credenciales de ECR dentro del clúster Kubernetes
+          sudo apt-get update -y && sudo apt-get install -y awscli
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export AWS_SESSION_TOKEN="${{ secrets.AWS_SESSION_TOKEN }}"
+          
+          # Crear o refrescar el secreto de autenticación de ECR en k3s
+          TOKEN=$(aws ecr get-login-password --region us-east-1)
+          sudo k3s kubectl create secret docker-registry ecr-secret \
+            --docker-server=066119770559.dkr.ecr.us-east-1.amazonaws.com \
+            --docker-username=AWS \
+            --docker-password=$TOKEN \
+            --namespace=default \
+            --dry-run=client -o yaml | sudo k3s kubectl apply -f -
+
+          # Descargar los últimos manifiestos y aplicarlos
+          rm -rf cloud-stockflow-k8s
+          git clone https://github.com/AlessanderLCarazas/cloud-stockflow-k8s.git
+          cd cloud-stockflow-k8s
+          
+          # Parchear los deployments para usar ecr-secret
+          sudo k3s kubectl apply -f k8s/
+          sudo k3s kubectl patch deployment stockflow-backend -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"ecr-secret"}]}}}}'
+          sudo k3s kubectl patch deployment stockflow-frontend -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"ecr-secret"}]}}}}'
+
+          # Forzar reinicio para obtener las últimas imágenes
+          sudo k3s kubectl rollout restart deployment/stockflow-backend
+          sudo k3s kubectl rollout restart deployment/stockflow-frontend
