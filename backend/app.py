@@ -407,11 +407,52 @@ def k8s_status():
                 "desired_replicas": deployment.spec.replicas or 0
             })
 
-        # HPA
+        # HPA. La biblioteca Kubernetes 34.1.0 puede entregar estas
+        # estructuras como diccionarios, por lo que se admite tanto dict
+        # como modelos con atributos.
+        def obtener_campo(objeto, campo, default=None):
+            if isinstance(objeto, dict):
+                return objeto.get(campo, default)
+            return getattr(objeto, campo, default)
+
         hpa_data = autoscaling.list_namespaced_horizontal_pod_autoscaler(namespace)
         hpas = []
 
         for hpa in hpa_data.items:
+            current_metrics = []
+
+            for metric in (hpa.status.current_metrics or []):
+                metric_type = obtener_campo(metric, "type", "")
+                resource_data = obtener_campo(metric, "resource") or {}
+                current_data = obtener_campo(resource_data, "current") or {}
+                resource_name = obtener_campo(resource_data, "name")
+
+                target_value = None
+                for spec_metric in (hpa.spec.metrics or []):
+                    spec_type = obtener_campo(spec_metric, "type", "")
+                    spec_resource = obtener_campo(spec_metric, "resource") or {}
+                    spec_resource_name = obtener_campo(spec_resource, "name")
+                    spec_target = obtener_campo(spec_resource, "target") or {}
+
+                    if (
+                        spec_type == metric_type
+                        and resource_name is not None
+                        and spec_resource_name == resource_name
+                    ):
+                        target_value = obtener_campo(
+                            spec_target, "average_utilization"
+                        )
+                        break
+
+                current_metrics.append({
+                    "type": metric_type,
+                    "resource": resource_name,
+                    "current": obtener_campo(
+                        current_data, "average_utilization"
+                    ),
+                    "target": target_value
+                })
+
             hpas.append({
                 "name": hpa.metadata.name,
                 "target": hpa.spec.scale_target_ref.name,
@@ -419,34 +460,7 @@ def k8s_status():
                 "max_replicas": hpa.spec.max_replicas,
                 "current_replicas": hpa.status.current_replicas or 0,
                 "desired_replicas": hpa.status.desired_replicas or 0,
-                
-                "current_metrics": [
-                    {
-                        "type": metric.type,
-                        "resource": metric.resource.name if metric.resource else None,
-                        "current": (
-                            metric.resource.current.average_utilization
-                            if metric.resource and metric.resource.current
-                            else None
-                        ),
-                        "target": next(
-                            (
-                                spec_metric.resource.target.average_utilization
-                                for spec_metric in (hpa.spec.metrics or [])
-                                if (
-                                    spec_metric.type == metric.type
-                                    and spec_metric.resource
-                                    and metric.resource
-                                    and spec_metric.resource.name == metric.resource.name
-                                    and spec_metric.resource.target
-                                )
-                            ),
-                            None
-                        )
-                    }
-                    for metric in (hpa.status.current_metrics or [])
-                ]
-
+                "current_metrics": current_metrics
             })
 
         # Eventos recientes. Si la API de eventos falla, no se interrumpe
