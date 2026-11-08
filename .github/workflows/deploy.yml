@@ -23,8 +23,9 @@ jobs:
     - name: Instalar dependencias y ejecutar pruebas (CI)
       run: |
         python -m pip install --upgrade pip
-        pip install pytest flask
-        pytest
+        if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+        pip install pytest psycopg2-binary
+        PYTHONPATH=backend pytest backend/tests/
 
     # 4. Autenticarse en AWS
     - name: Configurar credenciales de AWS
@@ -87,7 +88,7 @@ jobs:
           git clone https://github.com/AlessanderLCarazas/cloud-stockflow-k8s.git
           cd cloud-stockflow-k8s
           
-          # Parchear los deployments para usar ecr-secret
+          # Aplicar manifiestos y vincular ecr-secret
           sudo k3s kubectl apply -f k8s/
           sudo k3s kubectl patch deployment stockflow-backend -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"ecr-secret"}]}}}}'
           sudo k3s kubectl patch deployment stockflow-frontend -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"ecr-secret"}]}}}}'
