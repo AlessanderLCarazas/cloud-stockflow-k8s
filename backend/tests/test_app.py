@@ -186,3 +186,119 @@ def test_transferencia_no_deja_saldo_negativo(client):
 
     assert response.status_code == 400
     assert obtener_saldo() >= 0
+
+
+def test_k8s_status_includes_worker_node_metrics(client, monkeypatch):
+    """Comprueba los nodos, providerID y métricas de infraestructura."""
+
+    from types import SimpleNamespace as NS
+
+    worker = NS(
+        metadata=NS(
+            name="worker-test",
+            labels={
+                "cloudstockflow/role": "worker",
+                "node.kubernetes.io/instance-type": "t3.medium",
+                "topology.kubernetes.io/zone": "us-east-1d",
+            },
+        ),
+        spec=NS(
+            provider_id="aws:///us-east-1d/i-0123456789abcdef0"
+        ),
+        status=NS(
+            conditions=[
+                NS(type="Ready", status="True")
+            ],
+            addresses=[
+                NS(type="InternalIP", address="172.31.29.35")
+            ],
+            capacity={
+                "cpu": "2",
+                "memory": "3939996Ki",
+                "pods": "110",
+            },
+            allocatable={
+                "cpu": "2",
+                "memory": "3939996Ki",
+                "pods": "110",
+            },
+        ),
+    )
+
+    fake_core = NS(
+        list_namespaced_pod=lambda *args, **kwargs: NS(items=[]),
+        list_node=lambda *args, **kwargs: NS(items=[worker]),
+        list_namespaced_event=lambda *args, **kwargs: NS(items=[]),
+    )
+
+    fake_apps = NS(
+        list_namespaced_deployment=lambda *args, **kwargs: NS(items=[])
+    )
+
+    fake_autoscaling = NS(
+        list_namespaced_horizontal_pod_autoscaler=lambda *args, **kwargs:
+            NS(items=[])
+    )
+
+    def fake_cluster_metrics(group, version, plural, **kwargs):
+        if plural == "pods":
+            return {"items": []}
+
+        if plural == "nodes":
+            return {
+                "items": [{
+                    "metadata": {"name": "worker-test"},
+                    "usage": {
+                        "cpu": "250m",
+                        "memory": "512Mi",
+                    },
+                }]
+            }
+
+        return {"items": []}
+
+    fake_custom = NS(
+        list_namespaced_custom_object=lambda *args, **kwargs: {"items": []},
+        list_cluster_custom_object=fake_cluster_metrics,
+    )
+
+    monkeypatch.setattr(
+        app_module.client, "CoreV1Api", lambda: fake_core
+    )
+    monkeypatch.setattr(
+        app_module.client, "AppsV1Api", lambda: fake_apps
+    )
+    monkeypatch.setattr(
+        app_module.client, "AutoscalingV2Api",
+        lambda: fake_autoscaling
+    )
+    monkeypatch.setattr(
+        app_module.client, "CustomObjectsApi", lambda: fake_custom
+    )
+    monkeypatch.setattr(app_module, "K8S_CLIENT", True)
+
+    response = client.get("/api/k8s/status")
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+    assert data["status"] == "ok"
+    assert len(data["nodes"]) == 1
+
+    node = data["nodes"][0]
+
+    assert node["name"] == "worker-test"
+    assert node["role"] == "worker"
+    assert node["status"] == "Ready"
+    assert node["instance_id"] == "i-0123456789abcdef0"
+    assert node["instance_type"] == "t3.medium"
+    assert node["availability_zone"] == "us-east-1d"
+    assert node["private_ip"] == "172.31.29.35"
+
+    assert node["usage"]["cpu_millicores"] == 250
+    assert node["usage"]["cpu_percent"] == 12.5
+    assert node["usage"]["memory_mib"] == 512
+    assert node["usage"]["memory_percent"] is not None
+
+    assert node["capacity"]["cpu_cores"] == 2
+    assert node["capacity"]["pods"] == 110

@@ -517,10 +517,220 @@ def k8s_status():
                 "Error inesperado al procesar eventos de Kubernetes"
             )
 
+
+        # Nodos del cluster y métricas reales de infraestructura
+        def cpu_to_millicores(value):
+            if value is None:
+                return None
+            value = str(value)
+            if value.endswith("n"):
+                return float(value[:-1]) / 1_000_000
+            if value.endswith("u"):
+                return float(value[:-1]) / 1_000
+            if value.endswith("m"):
+                return float(value[:-1])
+            return float(value) * 1000
+
+        def memory_to_mib(value):
+            if value is None:
+                return None
+
+            value = str(value)
+            units = {
+                "Ki": 1024,
+                "Mi": 1024 ** 2,
+                "Gi": 1024 ** 3,
+                "Ti": 1024 ** 4,
+                "K": 1000,
+                "M": 1000 ** 2,
+                "G": 1000 ** 3,
+                "T": 1000 ** 4,
+            }
+
+            for suffix, multiplier in units.items():
+                if value.endswith(suffix):
+                    return (
+                        float(value[:-len(suffix)])
+                        * multiplier / (1024 ** 2)
+                    )
+
+            # Kubernetes también puede devolver cantidades en bytes.
+            return float(value) / (1024 ** 2)
+
+        def percentage(usage, allocatable):
+            if usage is None or not allocatable:
+                return None
+            return round((usage / allocatable) * 100, 2)
+
+        # Obtener métricas de CPU y memoria por nodo
+        node_metrics_by_name = {}
+
+        try:
+            node_metrics_data = custom.list_cluster_custom_object(
+                group="metrics.k8s.io",
+                version="v1beta1",
+                plural="nodes",
+                _request_timeout=10
+            )
+
+            for item in node_metrics_data.get("items", []):
+                name = item["metadata"]["name"]
+                usage = item.get("usage", {})
+
+                node_metrics_by_name[name] = {
+                    "cpu_millicores": cpu_to_millicores(
+                        usage.get("cpu")
+                    ),
+                    "memory_mib": memory_to_mib(
+                        usage.get("memory")
+                    )
+                }
+
+        except Exception:
+            app.logger.exception(
+                "No se pudieron consultar las métricas de los nodos"
+            )
+
+        # Consultar nodos registrados en Kubernetes
+        nodes_data = core.list_node(_request_timeout=10)
+        nodes = []
+
+        for node in nodes_data.items:
+            name = node.metadata.name
+            labels = node.metadata.labels or {}
+            provider_id = node.spec.provider_id or ""
+
+            # Relacionar el nodo con EC2 usando providerID.
+            instance_id = None
+            if provider_id.startswith("aws:///"):
+                instance_id = provider_id.rsplit("/", 1)[-1]
+
+            # Estado real del nodo
+            ready_status = "Unknown"
+            for condition in (node.status.conditions or []):
+                if condition.type == "Ready":
+                    if condition.status == "True":
+                        ready_status = "Ready"
+                    elif condition.status == "False":
+                        ready_status = "NotReady"
+                    else:
+                        ready_status = "Unknown"
+                    break
+
+            addresses = {
+                address.type: address.address
+                for address in (node.status.addresses or [])
+            }
+
+            capacity_data = node.status.capacity or {}
+            allocatable_data = node.status.allocatable or {}
+
+            capacity_cpu = cpu_to_millicores(
+                capacity_data.get("cpu")
+            )
+            capacity_memory = memory_to_mib(
+                capacity_data.get("memory")
+            )
+
+            allocatable_cpu = cpu_to_millicores(
+                allocatable_data.get("cpu")
+            )
+            allocatable_memory = memory_to_mib(
+                allocatable_data.get("memory")
+            )
+
+            metrics = node_metrics_by_name.get(name)
+
+            cpu_usage = (
+                metrics.get("cpu_millicores")
+                if metrics else None
+            )
+            memory_usage = (
+                metrics.get("memory_mib")
+                if metrics else None
+            )
+
+            role = labels.get("cloudstockflow/role")
+            if not role:
+                if (
+                    "node-role.kubernetes.io/control-plane" in labels
+                    or "node-role.kubernetes.io/master" in labels
+                ):
+                    role = "control-plane"
+                else:
+                    role = "worker"
+
+            availability_zone = (
+                labels.get("topology.kubernetes.io/zone")
+                or labels.get("failure-domain.beta.kubernetes.io/zone")
+            )
+
+            # Los Pods de esta sección pertenecen al namespace default.
+            node_pods = [
+                pod for pod in pods
+                if pod["node"] == name
+            ]
+
+            nodes.append({
+                "name": name,
+                "role": role,
+                "status": ready_status,
+                "provider_id": provider_id or None,
+                "instance_id": instance_id,
+                "instance_type": labels.get(
+                    "node.kubernetes.io/instance-type"
+                ),
+                "availability_zone": availability_zone,
+                "private_ip": addresses.get("InternalIP"),
+                "external_ip": addresses.get("ExternalIP"),
+                "capacity": {
+                    "cpu_cores": (
+                        round(capacity_cpu / 1000, 3)
+                        if capacity_cpu is not None else None
+                    ),
+                    "memory_mib": (
+                        round(capacity_memory, 2)
+                        if capacity_memory is not None else None
+                    ),
+                    "pods": int(capacity_data["pods"])
+                    if capacity_data.get("pods") else None
+                },
+                "allocatable": {
+                    "cpu_millicores": allocatable_cpu,
+                    "memory_mib": (
+                        round(allocatable_memory, 2)
+                        if allocatable_memory is not None else None
+                    ),
+                    "pods": int(allocatable_data["pods"])
+                    if allocatable_data.get("pods") else None
+                },
+                "usage": {
+                    "cpu_millicores": (
+                        round(cpu_usage, 2)
+                        if cpu_usage is not None else None
+                    ),
+                    "cpu_percent": percentage(
+                        cpu_usage, allocatable_cpu
+                    ),
+                    "memory_mib": (
+                        round(memory_usage, 2)
+                        if memory_usage is not None else None
+                    ),
+                    "memory_percent": percentage(
+                        memory_usage, allocatable_memory
+                    )
+                },
+                "default_namespace_pod_count": len(node_pods),
+                "default_namespace_pods": [
+                    pod["name"] for pod in node_pods
+                ]
+            })
+
         return jsonify({
             "status": "ok",
             "timestamp": datetime.utcnow().isoformat(),
             "pods": pods,
+            "nodes": nodes,
             "pod_metrics": pod_metrics,
             "deployments": deployments,
             "hpas": hpas,
