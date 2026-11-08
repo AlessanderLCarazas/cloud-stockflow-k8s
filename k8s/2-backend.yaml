@@ -12,6 +12,7 @@ spec:
       labels:
         app: stockflow-backend
     spec:
+      serviceAccountName: stockflow-monitor
       containers:
       - name: backend
         image: 066119770559.dkr.ecr.us-east-1.amazonaws.com/cloud-stockflow-backend:latest

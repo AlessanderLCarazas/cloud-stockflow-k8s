@@ -8,6 +8,8 @@ import psycopg2
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from datetime import datetime
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 
 try:
     import psutil
@@ -20,7 +22,16 @@ app = Flask(__name__)
 CORS(app)
 
 MODO_K8S = os.environ.get("DB_HOST") is not None
+# Cliente de Kubernetes para monitorización
+K8S_CLIENT = False
 
+if MODO_K8S:
+    try:
+        config.load_incluster_config()
+        K8S_CLIENT = True
+        print("Monitorización Kubernetes: conectada")
+    except Exception as e:
+        print(f"Error conectando con Kubernetes: {e}")
 
 def get_db_connection():
     if MODO_K8S:
@@ -290,6 +301,192 @@ def stress():
         "mensaje": "Pico de CPU finalizado",
         "pod": socket.gethostname()
     }), 200
+
+
+
+@app.route("/api/k8s/status", methods=["GET"])
+def k8s_status():
+    if not K8S_CLIENT:
+        return jsonify({
+            "status": "error",
+            "message": "Cliente de Kubernetes no conectado"
+        }), 503
+
+    try:
+        core = client.CoreV1Api()
+        apps = client.AppsV1Api()
+        autoscaling = client.AutoscalingV2Api()
+        custom = client.CustomObjectsApi()
+
+        namespace = "default"
+
+        # Pods
+        pods_data = core.list_namespaced_pod(namespace)
+        pods = []
+
+        for pod in pods_data.items:
+            containers = pod.status.container_statuses or []
+
+            pods.append({
+                "name": pod.metadata.name,
+                "status": pod.status.phase,
+                "pod_ip": pod.status.pod_ip,
+                "node": pod.spec.node_name,
+                "restarts": sum(c.restart_count for c in containers),
+                "ready": sum(1 for c in containers if c.ready),
+                "total_containers": len(containers),
+                "created": pod.metadata.creation_timestamp.isoformat()
+                if pod.metadata.creation_timestamp else None
+            })
+
+        # Métricas reales de CPU y memoria de los Pods
+        try:
+            metrics_data = custom.list_namespaced_custom_object(
+                group="metrics.k8s.io",
+                version="v1beta1",
+                namespace=namespace,
+                plural="pods"
+            )
+
+            pod_metrics = []
+
+            for item in metrics_data.get("items", []):
+                cpu_total = 0
+                memory_total = 0
+
+                for container in item.get("containers", []):
+                    cpu = container["usage"]["cpu"]
+                    memory = container["usage"]["memory"]
+
+                    if cpu.endswith("n"):
+                        cpu_total += int(cpu[:-1]) / 1_000_000
+                    elif cpu.endswith("u"):
+                        cpu_total += int(cpu[:-1]) / 1000
+                    elif cpu.endswith("m"):
+                        cpu_total += int(cpu[:-1])
+
+                    if memory.endswith("Ki"):
+                        memory_total += int(memory[:-2]) / 1024
+                    elif memory.endswith("Mi"):
+                        memory_total += float(memory[:-2])
+                    elif memory.endswith("Gi"):
+                        memory_total += float(memory[:-2]) * 1024
+                    elif memory.endswith("K"):
+                        memory_total += int(memory[:-1]) / 1024
+                    elif memory.endswith("M"):
+                        memory_total += float(memory[:-1])
+                    elif memory.endswith("G"):
+                        memory_total += float(memory[:-1]) * 1024
+                    elif memory.endswith("B"):
+                        memory_total += int(memory[:-1]) / (1024 * 1024)
+
+                pod_metrics.append({
+                    "name": item["metadata"]["name"],
+                    "cpu_millicores": round(cpu_total, 2),
+                    "memory_mib": round(memory_total, 2)
+                })
+
+        except ApiException as e:
+            app.logger.error(
+                "Error consultando Metrics Server: %s - %s",
+                e.status,
+                e.reason
+            )
+            pod_metrics = []
+
+        # Deployments
+        deployments_data = apps.list_namespaced_deployment(namespace)
+        deployments = []
+
+        for deployment in deployments_data.items:
+            deployments.append({
+                "name": deployment.metadata.name,
+                "replicas": deployment.status.replicas or 0,
+                "ready_replicas": deployment.status.ready_replicas or 0,
+                "available_replicas": deployment.status.available_replicas or 0,
+                "desired_replicas": deployment.spec.replicas or 0
+            })
+
+        # HPA
+        hpa_data = autoscaling.list_namespaced_horizontal_pod_autoscaler(namespace)
+        hpas = []
+
+        for hpa in hpa_data.items:
+            hpas.append({
+                "name": hpa.metadata.name,
+                "target": hpa.spec.scale_target_ref.name,
+                "min_replicas": hpa.spec.min_replicas,
+                "max_replicas": hpa.spec.max_replicas,
+                "current_replicas": hpa.status.current_replicas or 0,
+                "desired_replicas": hpa.status.desired_replicas or 0,
+                "current_metrics": [
+                    {
+                        "type": metric.type,
+                        "resource": metric.resource.name if metric.resource else None,
+                        "current": (
+                            metric.resource.current.average_utilization
+                            if metric.resource and metric.resource.current
+                            else None
+                        ),
+                        "target": (
+                            metric.resource.target.average_utilization
+                            if metric.resource and metric.resource.target
+                            else None
+                        )
+                    }
+                    for metric in (hpa.status.current_metrics or [])
+                ]
+            })
+
+        # Eventos recientes
+        events_data = core.list_namespaced_event(
+            namespace,
+            limit=30
+        )
+
+        events = []
+
+        for event in events_data.items:
+            events.append({
+                "type": event.type,
+                "reason": event.reason,
+                "message": event.message,
+                "object": event.involved_object.name,
+                "count": event.count,
+                "last_timestamp": (
+                    event.last_timestamp.isoformat()
+                    if event.last_timestamp else None
+                )
+            })
+
+        events.sort(
+            key=lambda e: e["last_timestamp"] or "",
+            reverse=True
+        )
+
+        return jsonify({
+            "status": "ok",
+            "timestamp": datetime.utcnow().isoformat(),
+            "pods": pods,
+            "pod_metrics": pod_metrics,
+            "deployments": deployments,
+            "hpas": hpas,
+            "events": events
+        })
+
+    except ApiException as e:
+        return jsonify({
+            "status": "error",
+            "message": "Error consultando Kubernetes",
+            "details": e.reason
+        }), e.status or 500
+
+    except Exception as e:
+        app.logger.exception("Error en monitorización Kubernetes")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 
 if __name__ == "__main__":
