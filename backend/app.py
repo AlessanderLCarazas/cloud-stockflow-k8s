@@ -486,11 +486,15 @@ def k8s_status():
         })
 
     except ApiException as e:
+        app.logger.exception("Error de la API de Kubernetes")
+
         return jsonify({
             "status": "error",
             "message": "Error consultando Kubernetes",
-            "details": e.reason
-        }), e.status or 500
+            "http_status": e.status,
+            "details": e.reason,
+            "body": e.body
+        }), 500
 
     except Exception as e:
         app.logger.exception("Error en monitorización Kubernetes")
