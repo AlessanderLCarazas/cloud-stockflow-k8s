@@ -57,7 +57,7 @@ jobs:
         ECR_REPOSITORY: cloud-stockflow-frontend
         IMAGE_TAG: latest
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
+        docker build --build-arg REACT_APP_API_URL=http://${{ secrets.EC2_HOST }}:30001 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
     # 7. DESPLIEGUE CONTINUO (CD): Actualizar Kubernetes en EC2 vía SSH

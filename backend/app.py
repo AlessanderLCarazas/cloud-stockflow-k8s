@@ -124,4 +124,4 @@ def stress():
     return jsonify({"mensaje": "Pico de CPU finalizado", "pod": socket.gethostname()})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3000)
+    app.run(host='0.0.0.0', port=5000)
