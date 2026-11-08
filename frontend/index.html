@@ -3,247 +3,306 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GlobalBank | Banca por Internet</title>
-    
+    <title>GlobalBank - Dashboard & Ops</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .glass-card { background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%); color: white; }
-        
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    </style>
 </head>
-<body class="flex h-screen overflow-hidden text-slate-800">
-
-    <!-- Sidebar (Menú Lateral) -->
-    <aside class="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col">
-        <div class="h-16 flex items-center px-6 border-b border-slate-200">
-            <i class="fa-solid fa-building-columns text-blue-600 text-2xl mr-3"></i>
-            <span class="text-xl font-bold text-slate-800">GlobalBank</span>
-        </div>
-        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            <a href="#" class="flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-700 rounded-lg font-medium">
-                <i class="fa-solid fa-wallet w-5"></i> Resumen
-            </a>
-            <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
-                <i class="fa-solid fa-arrow-right-arrow-left w-5"></i> Transferencias
-            </a>
-            <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
-                <i class="fa-solid fa-credit-card w-5"></i> Tarjetas
-            </a>
-            <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
-                <i class="fa-solid fa-chart-line w-5"></i> Inversiones
-            </a>
-            <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
-                <i class="fa-solid fa-shield-halved w-5"></i> Seguros
-            </a>
-        </nav>
-        <div class="p-4 border-t border-slate-200">
-            <div class="flex items-center gap-3">
-                <img src="https://ui-avatars.com/api/?name=Usuario+Demo&background=0D8ABC&color=fff" alt="Avatar" class="w-10 h-10 rounded-full">
-                <div>
-                    <p class="text-sm font-semibold">Usuario Premium</p>
-                    <p class="text-xs text-slate-500">ID: 004-98231</p>
+<body class="bg-gray-100 font-sans">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 bg-slate-900 text-white flex flex-col justify-between">
+            <div>
+                <div class="p-6 text-2xl font-bold tracking-wider text-blue-400 flex items-center gap-2">
+                    <i class="fa-solid fa-building-columns"></i> GlobalBank
                 </div>
+                <nav class="mt-6 space-y-1">
+                    <button onclick="switchTab('resumen')" id="tab-btn-resumen" class="w-full flex items-center gap-3 px-6 py-3 text-sm font-medium bg-blue-600 text-white transition-all">
+                        <i class="fa-solid fa-chart-pie"></i> Resumen
+                    </button>
+                    <button onclick="switchTab('monitoring')" id="tab-btn-monitoring" class="w-full flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition-all">
+                        <i class="fa-solid fa-microchip"></i> Monitorización K8s
+                    </button>
+                </nav>
             </div>
-        </div>
-    </aside>
+            <div class="p-4 border-t border-slate-800 text-xs text-gray-500 text-center">
+                Stockflow v2.4 | Kubernetes Cluster
+            </div>
+        </aside>
 
-    <!-- Contenido Principal -->
-    <main class="flex-1 flex flex-col h-screen overflow-hidden">
-        <!-- Top Navigation -->
-        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6">
-            <div class="flex items-center text-sm text-slate-500">
-                <i class="fa-solid fa-server mr-2"></i>
-                <span id="k8s-pod" class="font-mono bg-slate-100 px-2 py-1 rounded text-xs text-slate-600">Conectando...</span>
-            </div>
-            <div class="flex items-center gap-4">
-                <button class="text-slate-400 hover:text-slate-600 relative">
-                    <i class="fa-regular fa-bell text-xl"></i>
-                    <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
-                <button class="text-slate-400 hover:text-slate-600">
-                    <i class="fa-solid fa-gear text-xl"></i>
-                </button>
-            </div>
-        </header>
-
-        <!-- Dashboard Content -->
-        <div class="flex-1 overflow-y-auto p-6 md:p-8">
-            <h1 class="text-2xl font-bold mb-6">Hola, bienvenido de nuevo 👋</h1>
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto p-8">
             
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                <!-- Tarjeta de Crédito Visual -->
-                <div class="glass-card rounded-2xl p-6 shadow-lg relative overflow-hidden">
-                    <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10"></div>
-                    <div class="flex justify-between items-start mb-8">
-                        <div>
-                            <p class="text-blue-200 text-sm mb-1">Saldo Disponible</p>
-                            <h2 class="text-3xl font-bold tracking-tight" id="saldo-display">$ ---</h2>
+            <!-- Top Status Bar -->
+            <header class="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="flex items-center gap-3">
+                    <span class="relative flex h-3 w-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    <span class="text-sm font-medium text-gray-700">Nodo Activo: <code id="pod-name" class="bg-gray-100 px-2 py-1 rounded text-blue-600 font-mono text-xs">Cargando...</code></span>
+                </div>
+                <div class="text-xs font-mono text-gray-500" id="db-engine-badge">Motor DB: Detectando...</div>
+            </header>
+
+            <!-- TAB 1: RESUMEN BANCARIO -->
+            <section id="view-resumen" class="space-y-6">
+                <h1 class="text-2xl font-bold text-gray-800">Hola, bienvenido de nuevo 👋</h1>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Tarjeta de Saldo -->
+                    <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
+                        <div class="text-sm opacity-80">Saldo Disponible</div>
+                        <div class="text-4xl font-extrabold my-4" id="saldo-display">$ ---</div>
+                        <div class="flex justify-between text-xs opacity-75 mt-8">
+                            <span>**** **** **** 4281</span>
+                            <span>12/28</span>
                         </div>
-                        <i class="fa-brands fa-cc-visa text-4xl"></i>
                     </div>
-                    <div class="flex justify-between items-end text-sm">
-                        <div class="tracking-widest opacity-80">**** **** **** 4281</div>
-                        <div>12/28</div>
+
+                    <!-- Formulario Transferencias -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane text-blue-500"></i> Transferencia Inmediata
+                        </h2>
+                        <form onsubmit="realizarTransferencia(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">CUENTA DESTINO</label>
+                                <input type="text" id="destino" required placeholder="Ej. 987654321" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">MONTO (USD)</label>
+                                <input type="number" id="monto" required step="0.01" placeholder="0.00" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            </div>
+                            <button type="submit" id="btn-transfer" class="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition">Confirmar Envío</button>
+                        </form>
                     </div>
                 </div>
 
-                <!-- Formulario de Transferencia (Ocupa 2 columnas en pantallas grandes) -->
-                <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                    <h3 class="text-lg font-semibold mb-4 border-b pb-2"><i class="fa-solid fa-paper-plane mr-2 text-blue-600"></i> Transferencia Inmediata</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-500 mb-1">CUENTA DESTINO</label>
-                            <div class="relative">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fa-solid fa-user-check text-slate-400"></i>
-                                </div>
-                                <input type="text" id="input-cuenta" placeholder="Ej. 123456789" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-500 mb-1">MONTO (USD)</label>
-                            <div class="relative">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fa-solid fa-dollar-sign text-slate-400"></i>
-                                </div>
-                                <input type="number" id="input-monto" placeholder="0.00" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-between mt-6">
-                        <span id="mensaje-transferencia" class="text-sm font-medium"></span>
-                        <button onclick="realizarTransferencia()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors flex items-center gap-2 shadow-md">
-                            Confirmar Envío <i class="fa-solid fa-arrow-right"></i>
-                        </button>
+                <!-- Tabla de Movimientos -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <h3 class="text-md font-bold text-gray-800 mb-4">Últimos Movimientos</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="border-b text-xs text-gray-400">
+                                    <th class="pb-3">FECHA</th>
+                                    <th class="pb-3">DESCRIPCIÓN</th>
+                                    <th class="pb-3">DESTINO</th>
+                                    <th class="pb-3 text-right">MONTO</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-movimientos" class="divide-y text-gray-600">
+                                <tr><td colspan="4" class="py-4 text-center text-gray-400">Sin movimientos recientes</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Tabla de Movimientos -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                    <h3 class="text-lg font-semibold text-slate-800">Últimos Movimientos</h3>
-                    <button class="text-blue-600 text-sm font-semibold hover:underline">Ver todos</button>
+            <!-- TAB 2: MONITORIZACIÓN Y OPERACIÓN (REQUERIMIENTO 4.9) -->
+            <section id="view-monitoring" class="hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Panel de Monitorización & HPA</h1>
+                        <p class="text-sm text-gray-500">Telemetría de CPU, Memoria y Estado de Pods en Kubernetes</p>
+                    </div>
+                    <!-- Botón Stress Test -->
+                    <button onclick="ejecutarPruebaCarga()" id="btn-stress" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-bolt"></i> Disparar Prueba de Carga (/api/stress)
+                    </button>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                                <th class="px-6 py-3 font-semibold">Fecha</th>
-                                <th class="px-6 py-3 font-semibold">Descripción</th>
-                                <th class="px-6 py-3 font-semibold">Destino</th>
-                                <th class="px-6 py-3 font-semibold text-right">Monto</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-movimientos" class="text-sm divide-y divide-slate-100">
-                            <!-- Datos inyectados por JS -->
-                            <tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">Cargando movimientos...</td></tr>
-                        </tbody>
-                    </table>
+
+                <!-- Tarjetas de Métricas -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- CPU Meter -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-semibold text-gray-600">Uso de CPU (Pod)</span>
+                            <span id="cpu-value" class="text-sm font-bold text-blue-600">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div id="cpu-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-2">Límite asignado: 250m</div>
+                    </div>
+
+                    <!-- Memory Meter -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-semibold text-gray-600">Consumo de Memoria</span>
+                            <span id="mem-value" class="text-sm font-bold text-purple-600">0 MB</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div id="mem-bar" class="bg-purple-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-2">Límite RAM: 256 MiB</div>
+                    </div>
+
+                    <!-- Pod Status Card -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                        <span class="text-sm font-semibold text-gray-600">Estado Liveness / Readiness</span>
+                        <div class="mt-2 flex items-center gap-2">
+                            <span class="px-3 py-1 bg-green-100 text-green-700 font-semibold text-xs rounded-full">200 OK - Healthy</span>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-3">Health Check Route: <code>GET /</code></div>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="mt-8 text-center text-xs text-slate-400">
-                Sistema Core Bancario v2.4 | Motor DB: <span id="motor-db" class="font-semibold">Local</span>
-            </div>
-        </div>
-    </main>
+
+                <!-- Consola de Eventos y Logs en Vivo -->
+                <div class="bg-slate-950 text-green-400 p-6 rounded-2xl font-mono text-xs shadow-xl border border-slate-800">
+                    <div class="flex justify-between items-center pb-4 border-b border-slate-800 mb-4 text-gray-400">
+                        <span class="flex items-center gap-2"><i class="fa-solid fa-terminal"></i> Terminal de Eventos y Logs en Vivo</span>
+                        <button onclick="limpiarLogs()" class="hover:text-white"><i class="fa-solid fa-trash-can"></i> Limpiar</button>
+                    </div>
+                    <div id="log-console" class="h-48 overflow-y-auto space-y-1">
+                        <div>[SYSTEM] Iniciando monitor de eventos K8s...</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script>
         const API_URL = "http://3.94.106.217:30001";
+
+        function switchTab(tab) {
+            document.getElementById('view-resumen').classList.add('hidden');
+            document.getElementById('view-monitoring').classList.add('hidden');
+            document.getElementById('tab-btn-resumen').className = "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition-all";
+            document.getElementById('tab-btn-monitoring').className = "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition-all";
+
+            if(tab === 'resumen') {
+                document.getElementById('view-resumen').classList.remove('hidden');
+                document.getElementById('tab-btn-resumen').className = "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium bg-blue-600 text-white transition-all";
+            } else {
+                document.getElementById('view-monitoring').classList.remove('hidden');
+                document.getElementById('tab-btn-monitoring').className = "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium bg-blue-600 text-white transition-all";
+            }
+        }
 
         async function cargarDatos() {
             try {
                 const res = await fetch(API_URL + '/api/cuenta');
                 const data = await res.json();
                 
-                // Formatear saldo con comas
-                document.getElementById('saldo-display').innerText = `$ ${data.saldo.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                document.getElementById('motor-db').innerText = data.motor_db;
-                
-                // Mostrar qué pod/servidor está atendiendo (el toque técnico para el profesor)
-                document.getElementById('k8s-pod').innerHTML = `<span class="text-green-500 mr-1">●</span> Nodo: ${data.pod}`;
-                
-                const tbody = document.getElementById('tabla-movimientos');
-                tbody.innerHTML = '';
-                
-                if (data.movimientos.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center">No hay movimientos recientes</td></tr>';
-                    return;
-                }
+                document.getElementById('saldo-display').innerText = '$ ' + data.saldo.toLocaleString('en-US', {minimumFractionDigits: 2});
+                document.getElementById('pod-name').innerText = data.pod;
+                document.getElementById('db-engine-badge').innerText = 'Motor DB: ' + data.motor_db;
 
-                data.movimientos.forEach(mov => {
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="px-6 py-4 text-slate-500">${mov.fecha}</td>
-                            <td class="px-6 py-4 font-medium text-slate-800">
-                                <div class="flex items-center gap-2">
-                                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                                        <i class="fa-solid fa-money-bill-transfer"></i>
-                                    </div>
-                                    ${mov.tipo}
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 text-slate-600">${mov.destino || 'Propia'}</td>
-                            <td class="px-6 py-4 font-semibold text-right text-red-600">-$ ${mov.monto.toFixed(2)}</td>
+                // Renderizar lista de movimientos
+                const tabla = document.getElementById('tabla-movimientos');
+                if (data.movimientos && data.movimientos.length > 0) {
+                    tabla.innerHTML = data.movimientos.map(m => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="py-3 font-mono text-xs text-gray-400">${m.fecha || 'N/A'}</td>
+                            <td class="py-3 font-medium text-gray-800">${m.tipo}</td>
+                            <td class="py-3 text-gray-500">${m.destino}</td>
+                            <td class="py-3 text-right font-bold text-red-500">-$${m.monto.toFixed(2)}</td>
                         </tr>
-                    `;
-                });
-            } catch (error) {
-                console.error("Error conectando al backend:", error);
-                document.getElementById('k8s-pod').innerHTML = `<span class="text-red-500 mr-1">●</span> Sin conexión al servidor`;
+                    `).join('');
+                } else {
+                    tabla.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-gray-400">Sin movimientos recientes</td></tr>`;
+                }
+            } catch(e) {
+                logEvent(`[ERROR] Fallo de conexión con backend: ${e.message}`, 'error');
             }
         }
 
-        async function realizarTransferencia() {
-            const cuenta = document.getElementById('input-cuenta').value;
-            const monto = parseFloat(document.getElementById('input-monto').value);
-            const msgBox = document.getElementById('mensaje-transferencia');
+        async function realizarTransferencia(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-transfer');
+            const destino = document.getElementById('destino').value;
+            const monto = parseFloat(document.getElementById('monto').value);
 
-            if (!cuenta || !monto || monto <= 0) {
-                msgBox.className = "text-sm font-medium text-red-500";
-                msgBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Datos inválidos';
-                return;
-            }
-
-            msgBox.className = "text-sm font-medium text-blue-500";
-            msgBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+            btn.disabled = true;
+            btn.innerText = 'Procesando...';
 
             try {
                 const res = await fetch(API_URL + '/api/transfer', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ destino: cuenta, monto: monto })
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({destino, monto})
                 });
-                
                 const data = await res.json();
-                
-                if (!res.ok) throw new Error(data.error);
-
-                msgBox.className = "text-sm font-medium text-green-500";
-                msgBox.innerHTML = '<i class="fa-solid fa-check-circle"></i> ¡Transferencia Exitosa!';
-                document.getElementById('k8s-pod').innerHTML = `<span class="text-green-500 mr-1">●</span> Procesado por: ${data.pod}`;
-                
-                document.getElementById('input-cuenta').value = '';
-                document.getElementById('input-monto').value = '';
-                cargarDatos();
-
-                // Limpiar mensaje después de 3 segundos
-                setTimeout(() => { msgBox.innerHTML = ''; }, 3000);
-
-            } catch (error) {
-                msgBox.className = "text-sm font-medium text-red-500";
-                msgBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${error.message}`;
+                if(res.ok) {
+                    logEvent(`[POST /api/transfer] Éxito: $${monto} a ${destino} (Pod: ${data.pod})`, 'success');
+                    document.getElementById('destino').value = '';
+                    document.getElementById('monto').value = '';
+                    cargarDatos();
+                } else {
+                    logEvent(`[POST /api/transfer] Error: ${data.error}`, 'error');
+                }
+            } catch(err) {
+                logEvent(`[POST /api/transfer] Fallo de red`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Confirmar Envío';
             }
         }
 
-        window.onload = cargarDatos;
+        async function actualizarMetricas() {
+            try {
+                const res = await fetch(API_URL + '/api/metrics');
+                const data = await res.json();
+                
+                document.getElementById('cpu-value').innerText = data.cpu_percent + '%';
+                document.getElementById('cpu-bar').style.width = Math.min(data.cpu_percent, 100) + '%';
+                
+                if(data.cpu_percent > 70) {
+                    document.getElementById('cpu-bar').className = "bg-red-600 h-3 rounded-full transition-all duration-500";
+                } else {
+                    document.getElementById('cpu-bar').className = "bg-blue-600 h-3 rounded-full transition-all duration-500";
+                }
+
+                document.getElementById('mem-value').innerText = data.memory_mb + ' MB';
+                const memPct = (data.memory_mb / data.memory_limit_mb) * 100;
+                document.getElementById('mem-bar').style.width = Math.min(memPct, 100) + '%';
+                
+                logEvent(`[METRICS] Polling OK | Pod: ${data.pod} | CPU: ${data.cpu_percent}% | RAM: ${data.memory_mb}MB`);
+            } catch(e) {
+                logEvent(`[METRICS ERROR] No se pudieron obtener métricas del backend`, 'error');
+            }
+        }
+
+        async function ejecutarPruebaCarga() {
+            const btn = document.getElementById('btn-stress');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Generando Pico CPU...`;
+            logEvent(`[STRESS TEST] Lanzando calculo masivo de CPU en /api/stress...`, 'warn');
+
+            try {
+                const res = await fetch(API_URL + '/api/stress');
+                const data = await res.json();
+                logEvent(`[STRESS TEST COMPLETO] Respuesta de Pod: ${data.pod} - ${data.mensaje}`, 'success');
+            } catch(e) {
+                logEvent(`[STRESS ERROR] Error ejecutando test de carga`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-bolt"></i> Disparar Prueba de Carga (/api/stress)`;
+            }
+        }
+
+        function logEvent(msg, type='info') {
+            const consoleBox = document.getElementById('log-console');
+            const time = new Date().toLocaleTimeString();
+            let color = 'text-green-400';
+            if(type === 'error') color = 'text-red-400 font-bold';
+            if(type === 'warn') color = 'text-yellow-400 font-bold';
+            if(type === 'success') color = 'text-cyan-300 font-bold';
+
+            consoleBox.innerHTML += `<div class="${color}">[${time}] ${msg}</div>`;
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        function limpiarLogs() {
+            document.getElementById('log-console').innerHTML = '';
+        }
+
+        // Carga inicial y temporizadores de refresco
+        cargarDatos();
+        actualizarMetricas();
+        setInterval(actualizarMetricas, 3000);
+        setInterval(cargarDatos, 5000);
     </script>
 </body>
 </html>
