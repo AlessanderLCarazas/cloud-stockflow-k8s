@@ -181,18 +181,20 @@
                             <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-gauge-high text-red-600 mr-2"></i>Prueba de carga controlada</h2>
                             <p class="text-xs text-gray-500 mt-1 max-w-3xl">Genera solicitudes concurrentes al endpoint de cálculo <code>/api/stress</code> para observar el consumo de CPU y la reacción del HPA. No realiza transferencias ni modifica los datos bancarios.</p>
                         </div>
-                        <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">Máximo: 10 usuarios · 120 segundos</span>
+                        <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">Usuarios y duración configurables</span>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-5 gap-3 mt-5 items-end">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-6 gap-3 mt-5 items-end">
                         <div>
                             <label for="load-vus" class="block text-xs font-semibold text-gray-600 mb-1">Usuarios virtuales</label>
-                            <input id="load-vus" type="number" min="1" max="10" value="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <input id="load-vus" type="number" min="1" step="1" value="10" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                         </div>
                         <div>
-                            <label for="load-duration" class="block text-xs font-semibold text-gray-600 mb-1">Duración</label>
-                            <select id="load-duration" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                                <option value="15">15 segundos</option><option value="30" selected>30 segundos</option><option value="45">45 segundos</option><option value="60">60 segundos</option><option value="90">90 segundos</option><option value="120">120 segundos</option>
-                            </select>
+                            <label for="load-concurrency" class="block text-xs font-semibold text-gray-600 mb-1">Solicitudes simultáneas por usuario</label>
+                            <input id="load-concurrency" type="number" min="1" step="1" value="5" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label for="load-duration" class="block text-xs font-semibold text-gray-600 mb-1">Duración (segundos)</label>
+                            <input id="load-duration" type="number" min="1" step="1" value="60" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                         </div>
                         <button onclick="iniciarPruebaCarga()" id="btn-start-load" class="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-4 py-2.5 rounded-lg transition text-sm"><i class="fa-solid fa-play mr-1"></i> Iniciar prueba</button>
                         <button onclick="detenerPruebaCarga()" id="btn-stop-load" disabled class="bg-slate-700 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2.5 rounded-lg transition text-sm"><i class="fa-solid fa-stop mr-1"></i> Detener</button>
@@ -204,8 +206,8 @@
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Errores</p><p id="load-errors" class="text-2xl font-bold text-red-600">0</p></div>
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Solicitudes por segundo</p><p id="load-rps" class="text-2xl font-bold text-blue-600">0.00</p></div>
                     </div>
-                    <div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500"><span>Latencia media: <strong id="load-latency">-- ms</strong></span><span>Solicitudes en curso: <strong id="load-inflight">0</strong></span></div>
-                    <p class="text-xs text-amber-700 bg-amber-50 rounded-lg p-3 mt-4"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Ejecuta la prueba durante la demostración y deténla al finalizar. La carga es real y puede elevar temporalmente el uso de CPU; inicia con 4 usuarios y aumenta solo si el clúster se mantiene estable.</p>
+                    <div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500"><span>Latencia media: <strong id="load-latency">-- ms</strong></span><span>Solicitudes en curso: <strong id="load-inflight">0</strong></span><span>Conexiones paralelas totales: <strong id="load-workers">0</strong></span></div>
+                    <p class="text-xs text-blue-700 bg-blue-50 rounded-lg p-3 mt-4"><i class="fa-solid fa-circle-info mr-1"></i> La idea es que durante tu demostración puedas ver cómo sube la gráfica de CPU, aumenta el RPS y el HPA crea nuevas réplicas.</p>
                 </div>
 
                 <!-- DEPLOYMENTS -->
@@ -244,8 +246,6 @@
         // El frontend y el backend se publican en la misma IP, usando NodePorts distintos.
         const API_URL = `${window.location.protocol}//${window.location.hostname}:30001`;
         const POLLING_MS = 3000;
-        const MAX_VIRTUAL_USERS = 10;
-        const MAX_TEST_SECONDS = 120;
         const LIVE_HISTORY_LIMIT = 80; // 80 puntos a 3 s: aproximadamente 4 minutos.
 
         const liveHistory = {
@@ -275,7 +275,8 @@
             completed: 0,
             success: 0,
             errors: 0,
-            latencyTotal: 0
+            latencyTotal: 0,
+            controller: null
         };
 
         function escapeHtml(value) {
@@ -784,33 +785,36 @@
             document.getElementById('load-rps').textContent = rps.toFixed(2);
             document.getElementById('load-latency').textContent = loadTest.completed ? `${averageLatency.toFixed(0)} ms` : '-- ms';
             document.getElementById('load-inflight').textContent = loadTest.inFlight;
+            document.getElementById('load-workers').textContent = loadTest.workers;
             document.getElementById('load-elapsed').textContent = `${Math.floor(elapsedSeconds)} s`;
         }
 
-        async function ejecutarUsuarioVirtual(userNumber) {
+        // Cada "worker" es una conexión paralela que dispara solicitudes sin pausa entre una y otra.
+        async function ejecutarWorker(workerNumber, signal) {
             while (loadTest.running && !loadTest.stopRequested && Date.now() < loadTest.endAt) {
                 const started = performance.now();
                 loadTest.inFlight++;
-                document.getElementById('load-inflight').textContent = loadTest.inFlight;
+                let aborted = false;
                 try {
-                    const response = await fetch(API_URL + '/api/stress', { method: 'GET', cache: 'no-store' });
+                    const response = await fetch(API_URL + '/api/stress', { method: 'GET', cache: 'no-store', signal });
                     let data = {};
                     try { data = await response.json(); } catch (_) { /* La respuesta HTTP sigue contando como solicitud. */ }
                     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
                     loadTest.success++;
                 } catch (error) {
-                    loadTest.errors++;
-                    if (loadTest.errors <= 3) logEvent(`[LOAD TEST] Usuario ${userNumber}: ${error.message}`, 'error');
+                    if (error && error.name === 'AbortError') {
+                        aborted = true; // Cancelada por el usuario: no cuenta como error.
+                    } else {
+                        loadTest.errors++;
+                        if (loadTest.errors <= 3) logEvent(`[LOAD TEST] Worker ${workerNumber}: ${error.message}`, 'error');
+                    }
                 } finally {
-                    const latency = performance.now() - started;
-                    loadTest.latencyTotal += latency;
-                    loadTest.completed++;
                     loadTest.inFlight = Math.max(0, loadTest.inFlight - 1);
+                    if (!aborted) {
+                        loadTest.latencyTotal += performance.now() - started;
+                        loadTest.completed++;
+                    }
                     updateLoadStats();
-                }
-                // Pausa breve para evitar un bucle de solicitudes sin descanso entre respuestas.
-                if (loadTest.running && !loadTest.stopRequested && Date.now() < loadTest.endAt) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
         }
@@ -818,47 +822,62 @@
         async function iniciarPruebaCarga() {
             if (loadTest.running) return;
             const usersInput = document.getElementById('load-vus');
+            const concurrencyInput = document.getElementById('load-concurrency');
             const durationInput = document.getElementById('load-duration');
             const users = Number.parseInt(usersInput.value, 10);
+            const concurrency = Number.parseInt(concurrencyInput.value, 10);
             const duration = Number.parseInt(durationInput.value, 10);
-            if (!Number.isInteger(users) || users < 1 || users > MAX_VIRTUAL_USERS) {
-                logEvent(`La cantidad de usuarios debe estar entre 1 y ${MAX_VIRTUAL_USERS}.`, 'warn');
-                usersInput.value = '4';
+            if (!Number.isInteger(users) || users < 1) {
+                logEvent('Los usuarios virtuales deben ser un número entero mayor o igual a 1.', 'warn');
+                usersInput.value = '10';
                 return;
             }
-            if (!Number.isInteger(duration) || duration < 1 || duration > MAX_TEST_SECONDS) {
-                logEvent(`La duración debe estar entre 1 y ${MAX_TEST_SECONDS} segundos.`, 'warn');
+            if (!Number.isInteger(concurrency) || concurrency < 1) {
+                logEvent('Las solicitudes simultáneas por usuario deben ser un entero mayor o igual a 1.', 'warn');
+                concurrencyInput.value = '5';
+                return;
+            }
+            if (!Number.isInteger(duration) || duration < 1) {
+                logEvent('La duración debe ser un número entero de segundos mayor o igual a 1.', 'warn');
+                durationInput.value = '60';
                 return;
             }
 
+            const totalWorkers = users * concurrency;
             resetLoadStats();
             loadTest.running = true;
             loadTest.stopRequested = false;
             loadTest.startedAt = Date.now();
             loadTest.endAt = loadTest.startedAt + duration * 1000;
-            loadTest.workers = users;
+            loadTest.workers = totalWorkers;
+            loadTest.controller = new AbortController();
             usersInput.disabled = true;
+            concurrencyInput.disabled = true;
             durationInput.disabled = true;
             document.getElementById('btn-start-load').disabled = true;
             document.getElementById('btn-stop-load').disabled = false;
             setBadge('load-status', 'En ejecución', 'warn');
-            logEvent(`[LOAD TEST] Inicio: ${users} usuarios virtuales durante ${duration}s contra GET /api/stress.`, 'warn');
+            logEvent(`[LOAD TEST] Inicio: ${users} usuarios x ${concurrency} solicitudes simultáneas = ${totalWorkers} conexiones paralelas durante ${duration}s contra GET /api/stress.`, 'warn');
+            updateLoadStats();
+
             const timer = setInterval(() => {
                 updateLoadStats();
                 if (Date.now() >= loadTest.endAt && loadTest.running) {
                     loadTest.stopRequested = true;
                 }
-            }, 500);
+            }, 250);
 
             try {
-                const workers = Array.from({ length: users }, (_, index) => ejecutarUsuarioVirtual(index + 1));
+                const workers = Array.from({ length: totalWorkers }, (_, index) => ejecutarWorker(index + 1, loadTest.controller.signal));
                 await Promise.all(workers);
             } finally {
                 clearInterval(timer);
                 loadTest.running = false;
                 loadTest.stopRequested = true;
                 loadTest.workers = 0;
+                loadTest.controller = null;
                 usersInput.disabled = false;
+                concurrencyInput.disabled = false;
                 durationInput.disabled = false;
                 document.getElementById('btn-start-load').disabled = false;
                 document.getElementById('btn-stop-load').disabled = true;
@@ -872,9 +891,10 @@
         function detenerPruebaCarga() {
             if (!loadTest.running) return;
             loadTest.stopRequested = true;
+            if (loadTest.controller) loadTest.controller.abort();
             document.getElementById('btn-stop-load').disabled = true;
             setBadge('load-status', 'Deteniendo...', 'warn');
-            logEvent('[LOAD TEST] Solicitud de detención recibida. Se completarán las solicitudes que ya están en curso.', 'warn');
+            logEvent('[LOAD TEST] Detención solicitada. Se cancelan las solicitudes en curso.', 'warn');
         }
 
         // Inicialización y actualización periódica.
