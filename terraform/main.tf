@@ -92,6 +92,7 @@ resource "aws_security_group" "k3s_sg" {
 resource "aws_instance" "k3s_server" {
   ami           = "ami-0c7217cdde317cfec" # Ubuntu 22.04 LTS en us-east-1
   instance_type = "t3.medium"
+  key_name      = "vockey" #
 
   vpc_security_group_ids = [aws_security_group.k3s_sg.id]
 
