@@ -6,6 +6,7 @@
     <title>GlobalBank - Dashboard & Kubernetes Ops</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans text-slate-800">
     <div class="flex min-h-screen">
@@ -106,16 +107,16 @@
                 <!-- MÉTRICAS RESUMEN -->
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-                        <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">CPU del Pod activo</span><i class="fa-solid fa-microchip text-blue-500"></i></div>
+                        <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">CPU observada por psutil</span><i class="fa-solid fa-microchip text-blue-500"></i></div>
                         <div class="text-2xl font-extrabold text-blue-600" id="cpu-value">--%</div>
                         <div class="w-full bg-gray-200 rounded-full h-2.5 mt-3 overflow-hidden"><div id="cpu-bar" class="bg-blue-600 h-2.5 rounded-full" style="width:0%"></div></div>
-                        <p class="text-xs text-gray-400 mt-2">Proceso que atiende la consulta a /api/metrics</p>
+                        <p class="text-xs text-gray-400 mt-2">Lectura de psutil desde el backend; el uso individual por Pod se muestra en las gráficas.</p>
                     </div>
                     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-                        <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">Memoria del Pod activo</span><i class="fa-solid fa-memory text-purple-500"></i></div>
+                        <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">RAM del proceso backend</span><i class="fa-solid fa-memory text-purple-500"></i></div>
                         <div class="text-2xl font-extrabold text-purple-600" id="mem-value">-- MiB</div>
                         <div class="w-full bg-gray-200 rounded-full h-2.5 mt-3 overflow-hidden"><div id="mem-bar" class="bg-purple-600 h-2.5 rounded-full" style="width:0%"></div></div>
-                        <p class="text-xs text-gray-400 mt-2">Límite configurado del contenedor: 256 MiB</p>
+                        <p class="text-xs text-gray-400 mt-2">RSS del proceso Python/Gunicorn; límite del contenedor: 256 MiB.</p>
                     </div>
                     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
                         <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">Pods detectados</span><i class="fa-solid fa-cubes text-cyan-600"></i></div>
@@ -126,6 +127,39 @@
                         <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">Deployments</span><i class="fa-solid fa-diagram-project text-emerald-600"></i></div>
                         <div class="text-2xl font-extrabold text-slate-800" id="deployments-total">--</div>
                         <p class="text-xs text-gray-500 mt-2">Con réplicas disponibles: <span id="deployments-ready">--</span></p>
+                    </div>
+                </div>
+
+                <!-- GRÁFICAS TEMPORALES EN VIVO -->
+                <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-chart-line text-blue-600 mr-2"></i>Gráficas de telemetría en vivo</h2>
+                            <p class="text-xs text-gray-500 mt-1">Historial móvil de CPU, memoria y escalamiento. Cada punto procede de una consulta real a Kubernetes.</p>
+                        </div>
+                        <span class="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold">Ventana móvil: últimos 4 minutos · lectura cada 3 s</span>
+                    </div>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        <div class="border border-slate-200 rounded-xl p-3 md:p-4 min-w-0">
+                            <div class="flex justify-between items-center gap-2 mb-2"><div><h3 class="font-semibold text-sm text-slate-800">CPU por Pod</h3><p class="text-xs text-gray-500">Millicores (m) · Metrics Server</p></div><span id="cpu-chart-latest" class="text-xs font-mono text-blue-700">Esperando datos</span></div>
+                            <div class="relative h-64"><canvas id="cpu-history-chart" aria-label="Historial de CPU por Pod"></canvas></div>
+                        </div>
+                        <div class="border border-slate-200 rounded-xl p-3 md:p-4 min-w-0">
+                            <div class="flex justify-between items-center gap-2 mb-2"><div><h3 class="font-semibold text-sm text-slate-800">Memoria por Pod</h3><p class="text-xs text-gray-500">MiB · Metrics Server</p></div><span id="memory-chart-latest" class="text-xs font-mono text-purple-700">Esperando datos</span></div>
+                            <div class="relative h-64"><canvas id="memory-history-chart" aria-label="Historial de memoria por Pod"></canvas></div>
+                        </div>
+                        <div class="border border-slate-200 rounded-xl p-3 md:p-4 min-w-0">
+                            <div class="flex justify-between items-center gap-2 mb-2"><div><h3 class="font-semibold text-sm text-slate-800">Utilización del HPA</h3><p class="text-xs text-gray-500">CPU actual frente al objetivo (%)</p></div><span id="hpa-chart-latest" class="text-xs font-mono text-red-700">Esperando datos</span></div>
+                            <div class="relative h-64"><canvas id="hpa-history-chart" aria-label="Historial de utilización y objetivo del HPA"></canvas></div>
+                        </div>
+                        <div class="border border-slate-200 rounded-xl p-3 md:p-4 min-w-0">
+                            <div class="flex justify-between items-center gap-2 mb-2"><div><h3 class="font-semibold text-sm text-slate-800">Réplicas del backend</h3><p class="text-xs text-gray-500">Réplicas actuales y deseadas del HPA</p></div><span id="replicas-chart-latest" class="text-xs font-mono text-emerald-700">Esperando datos</span></div>
+                            <div class="relative h-64"><canvas id="replicas-history-chart" aria-label="Historial de réplicas del backend"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap justify-between gap-2 mt-3 text-xs text-gray-400">
+                        <span id="chart-history-status">Acumulando muestras reales de Kubernetes...</span>
+                        <span>Metrics Server tiene su propio intervalo de recopilación; una consulta puede repetir temporalmente la última muestra. /api/stress es CPU-intensivo, por lo que la memoria puede variar poco.</span>
                     </div>
                 </div>
 
@@ -212,6 +246,17 @@
         const POLLING_MS = 3000;
         const MAX_VIRTUAL_USERS = 10;
         const MAX_TEST_SECONDS = 120;
+        const LIVE_HISTORY_LIMIT = 80; // 80 puntos a 3 s: aproximadamente 4 minutos.
+
+        const liveHistory = {
+            labels: [],
+            pods: {},
+            hpaCpu: [],
+            hpaTarget: [],
+            replicasCurrent: [],
+            replicasDesired: []
+        };
+        let liveCharts = null;
 
         let previousPodNames = null;
         let previousDeploymentState = {};
@@ -273,6 +318,11 @@
             if (isMonitoring) {
                 actualizarEstadoK8s(true);
                 actualizarMetricas();
+                // El contenedor de gráficas acaba de hacerse visible; Chart.js ya puede medirlo.
+                setTimeout(() => {
+                    ensureLiveCharts();
+                    resizeLiveCharts();
+                }, 80);
             }
         }
 
@@ -366,6 +416,10 @@
                 const hpas = Array.isArray(data.hpas) ? data.hpas : [];
                 const events = Array.isArray(data.events) ? data.events : [];
 
+                // Guardar una muestra temporal real en cada consulta a /api/k8s/status.
+                recordLiveMetrics(pods, podMetrics, hpas);
+                if (liveCharts) updateLiveCharts();
+
                 setBadge('k8s-api-status', 'API Kubernetes: conectada', 'good');
                 document.getElementById('header-dot').className = 'relative inline-flex rounded-full h-3 w-3 bg-green-500';
                 document.getElementById('last-k8s-update').textContent = new Date().toLocaleTimeString();
@@ -386,6 +440,192 @@
                 isK8sPolling = false;
                 if (manual) refreshButton.innerHTML = '<i class="fa-solid fa-rotate"></i> Actualizar ahora';
             }
+        }
+
+        function shortPodName(name) {
+            if (name.startsWith('stockflow-backend-')) return `backend-${name.split('-').slice(-1)[0]}`;
+            if (name.startsWith('stockflow-frontend-')) return `frontend-${name.split('-').slice(-1)[0]}`;
+            if (name.startsWith('postgres-db-')) return `postgres-${name.split('-').slice(-1)[0]}`;
+            return name;
+        }
+
+        function recordLiveMetrics(pods, podMetrics, hpas) {
+            const now = new Date();
+            liveHistory.labels.push(now.toLocaleTimeString());
+            const metricsByName = new Map(podMetrics.map(metric => [metric.name, metric]));
+
+            // Para cada Pod conservamos una serie histórica independiente.
+            for (const [name, series] of Object.entries(liveHistory.pods)) {
+                const metric = metricsByName.get(name);
+                series.cpu.push(metric && Number.isFinite(Number(metric.cpu_millicores)) ? Number(metric.cpu_millicores) : null);
+                series.memory.push(metric && Number.isFinite(Number(metric.memory_mib)) ? Number(metric.memory_mib) : null);
+                series.active = metricsByName.has(name);
+            }
+            for (const metric of podMetrics) {
+                if (!liveHistory.pods[metric.name]) {
+                    liveHistory.pods[metric.name] = {
+                        label: shortPodName(metric.name),
+                        cpu: Array(Math.max(0, liveHistory.labels.length - 1)).fill(null),
+                        memory: Array(Math.max(0, liveHistory.labels.length - 1)).fill(null),
+                        active: true
+                    };
+                    liveHistory.pods[metric.name].cpu.push(Number.isFinite(Number(metric.cpu_millicores)) ? Number(metric.cpu_millicores) : null);
+                    liveHistory.pods[metric.name].memory.push(Number.isFinite(Number(metric.memory_mib)) ? Number(metric.memory_mib) : null);
+                }
+            }
+
+            const backendHpa = hpas.find(hpa => hpa.target === 'stockflow-backend') || hpas[0] || null;
+            const cpuMetric = backendHpa && Array.isArray(backendHpa.current_metrics)
+                ? (backendHpa.current_metrics.find(metric => metric.resource === 'cpu') || backendHpa.current_metrics[0])
+                : null;
+            liveHistory.hpaCpu.push(cpuMetric && cpuMetric.current != null ? Number(cpuMetric.current) : null);
+            liveHistory.hpaTarget.push(cpuMetric && cpuMetric.target != null ? Number(cpuMetric.target) : null);
+            liveHistory.replicasCurrent.push(backendHpa ? Number(backendHpa.current_replicas || 0) : null);
+            liveHistory.replicasDesired.push(backendHpa ? Number(backendHpa.desired_replicas || 0) : null);
+
+            // Mantener una ventana móvil de aproximadamente cuatro minutos.
+            if (liveHistory.labels.length > LIVE_HISTORY_LIMIT) {
+                liveHistory.labels.shift();
+                for (const series of Object.values(liveHistory.pods)) {
+                    series.cpu.shift();
+                    series.memory.shift();
+                }
+                liveHistory.hpaCpu.shift();
+                liveHistory.hpaTarget.shift();
+                liveHistory.replicasCurrent.shift();
+                liveHistory.replicasDesired.shift();
+            }
+
+            // Limitar las series antiguas para que el gráfico no crezca indefinidamente
+            // si se recrean muchos Pods durante despliegues sucesivos.
+            const podEntries = Object.entries(liveHistory.pods);
+            if (podEntries.length > 10) {
+                const inactive = podEntries.filter(([, series]) => !series.active);
+                while (Object.keys(liveHistory.pods).length > 10 && inactive.length) {
+                    const [oldName] = inactive.shift();
+                    delete liveHistory.pods[oldName];
+                }
+            }
+        }
+
+        function chartColor(index) {
+            const palette = [
+                { line: '#2563eb', fill: 'rgba(37,99,235,0.10)' },
+                { line: '#9333ea', fill: 'rgba(147,51,234,0.10)' },
+                { line: '#0891b2', fill: 'rgba(8,145,178,0.10)' },
+                { line: '#059669', fill: 'rgba(5,150,105,0.10)' },
+                { line: '#ea580c', fill: 'rgba(234,88,12,0.10)' },
+                { line: '#db2777', fill: 'rgba(219,39,119,0.10)' },
+                { line: '#4f46e5', fill: 'rgba(79,70,229,0.10)' },
+                { line: '#65a30d', fill: 'rgba(101,163,13,0.10)' },
+                { line: '#0f766e', fill: 'rgba(15,118,110,0.10)' },
+                { line: '#b45309', fill: 'rgba(180,83,9,0.10)' }
+            ];
+            return palette[index % palette.length];
+        }
+
+        function createLineChart(canvasId, yTitle, beginAtZero = true) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || typeof Chart === 'undefined') return null;
+            return new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 350, easing: 'easeOutQuart' },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: true, position: 'bottom', labels: { boxWidth: 12, boxHeight: 2, usePointStyle: true, padding: 14, font: { size: 10 } } },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { autoSkip: true, maxTicksLimit: 7, maxRotation: 0, font: { size: 9 } }
+                        },
+                        y: {
+                            beginAtZero,
+                            title: { display: true, text: yTitle, font: { size: 10 } },
+                            grid: { color: 'rgba(148,163,184,0.18)' },
+                            ticks: { font: { size: 9 } }
+                        }
+                    },
+                    elements: { line: { tension: 0.25, borderWidth: 2 }, point: { radius: 0, hoverRadius: 4, hitRadius: 8 } }
+                }
+            });
+        }
+
+        function ensureLiveCharts() {
+            if (liveCharts) return;
+            if (typeof Chart === 'undefined') {
+                const status = document.getElementById('chart-history-status');
+                if (status) status.textContent = 'No se pudo cargar Chart.js desde el CDN; comprueba la conexión a Internet.';
+                logEvent('[CHARTS] Chart.js no está disponible. Las tablas y métricas siguen funcionando.', 'error');
+                return;
+            }
+            liveCharts = {
+                cpu: createLineChart('cpu-history-chart', 'CPU (millicores)'),
+                memory: createLineChart('memory-history-chart', 'Memoria (MiB)'),
+                hpa: createLineChart('hpa-history-chart', 'Utilización (%)'),
+                replicas: createLineChart('replicas-history-chart', 'Réplicas')
+            };
+            updateLiveCharts();
+        }
+
+        function podDatasets(metricName) {
+            return Object.entries(liveHistory.pods).map(([name, series], index) => {
+                const color = chartColor(index);
+                return {
+                    label: series.label,
+                    data: series[metricName],
+                    borderColor: color.line,
+                    backgroundColor: color.fill,
+                    fill: false,
+                    spanGaps: false
+                };
+            });
+        }
+
+        function setChartData(chart, labels, datasets) {
+            if (!chart) return;
+            chart.data.labels = [...labels];
+            chart.data.datasets = datasets;
+            chart.update();
+        }
+
+        function updateLiveCharts() {
+            if (!liveCharts) return;
+            setChartData(liveCharts.cpu, liveHistory.labels, podDatasets('cpu'));
+            setChartData(liveCharts.memory, liveHistory.labels, podDatasets('memory'));
+            setChartData(liveCharts.hpa, liveHistory.labels, [
+                { label: 'CPU actual', data: liveHistory.hpaCpu, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.10)', fill: false },
+                { label: 'Objetivo HPA', data: liveHistory.hpaTarget, borderColor: '#2563eb', borderDash: [6, 4], pointRadius: 0, fill: false }
+            ]);
+            setChartData(liveCharts.replicas, liveHistory.labels, [
+                { label: 'Réplicas actuales', data: liveHistory.replicasCurrent, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.10)', fill: false, stepped: 'after' },
+                { label: 'Réplicas deseadas', data: liveHistory.replicasDesired, borderColor: '#7c3aed', borderDash: [6, 4], pointRadius: 0, fill: false, stepped: 'after' }
+            ]);
+
+            const last = liveHistory.labels.length - 1;
+            if (last >= 0) {
+                const cpuValues = Object.values(liveHistory.pods).map(series => series.cpu[last]).filter(value => value != null);
+                const memoryValues = Object.values(liveHistory.pods).map(series => series.memory[last]).filter(value => value != null);
+                document.getElementById('cpu-chart-latest').textContent = cpuValues.length ? `${cpuValues.length} Pods · ${cpuValues.reduce((sum, value) => sum + value, 0).toFixed(1)}m total` : 'Sin métricas';
+                document.getElementById('memory-chart-latest').textContent = memoryValues.length ? `${memoryValues.length} Pods medidos` : 'Sin métricas';
+                const hpaCpu = liveHistory.hpaCpu[last];
+                const hpaTarget = liveHistory.hpaTarget[last];
+                document.getElementById('hpa-chart-latest').textContent = hpaCpu == null ? 'Sin datos' : `${hpaCpu}% / ${hpaTarget ?? '--'}%`;
+                const current = liveHistory.replicasCurrent[last];
+                const desired = liveHistory.replicasDesired[last];
+                document.getElementById('replicas-chart-latest').textContent = current == null ? 'Sin datos' : `${current} actuales / ${desired} deseadas`;
+                document.getElementById('chart-history-status').textContent = `${liveHistory.labels.length} muestras históricas · última lectura ${liveHistory.labels[last]}`;
+            }
+        }
+
+        function resizeLiveCharts() {
+            if (!liveCharts) return;
+            Object.values(liveCharts).forEach(chart => chart && chart.resize());
         }
 
         function renderPodSummary(pods) {
