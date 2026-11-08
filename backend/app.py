@@ -605,6 +605,11 @@ def k8s_status():
             if provider_id.startswith("aws:///"):
                 instance_id = provider_id.rsplit("/", 1)[-1]
 
+            # El servidor principal utiliza un providerID k3s://.
+            # En ese caso, recuperar su EC2 ID desde la etiqueta propia.
+            if not instance_id:
+                instance_id = labels.get("cloudstockflow/ec2-instance-id")
+
             # Estado real del nodo
             ready_status = "Unknown"
             for condition in (node.status.conditions or []):
@@ -677,8 +682,9 @@ def k8s_status():
                 "status": ready_status,
                 "provider_id": provider_id or None,
                 "instance_id": instance_id,
-                "instance_type": labels.get(
-                    "node.kubernetes.io/instance-type"
+                "instance_type": (
+                    labels.get("cloudstockflow/instance-type")
+                    or labels.get("node.kubernetes.io/instance-type")
                 ),
                 "availability_zone": availability_zone,
                 "private_ip": addresses.get("InternalIP"),
