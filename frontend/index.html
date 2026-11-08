@@ -130,6 +130,43 @@
                     </div>
                 </div>
 
+
+                <!-- INFRAESTRUCTURA EC2 Y KUBERNETES -->
+                <section class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-wrap justify-between items-start gap-3 mb-5">
+                        <div>
+                            <h2 class="text-lg font-bold text-gray-800">
+                                <i class="fa-brands fa-aws text-orange-500 mr-2"></i>
+                                Infraestructura EC2 y nodos Kubernetes
+                            </h2>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Relación entre instancias EC2, nodos K3s, recursos y Pods asignados
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-3 text-xs">
+                            <span class="bg-slate-100 text-slate-700 rounded-full px-3 py-1">
+                                Nodos: <strong id="nodes-total">--</strong>
+                            </span>
+                            <span class="bg-green-50 text-green-700 rounded-full px-3 py-1">
+                                Ready: <strong id="nodes-ready">--</strong>
+                            </span>
+                            <span class="bg-blue-50 text-blue-700 rounded-full px-3 py-1">
+                                Workers: <strong id="nodes-workers">--</strong>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div id="nodes-grid" class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+                        <div class="border border-dashed border-slate-300 rounded-xl p-5 text-sm text-gray-400 text-center">
+                            Esperando información de los nodos EC2...
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-4">
+                        CPU y memoria procedentes de Metrics Server. Los Pods mostrados corresponden al namespace default.
+                        Actualización mediante /api/k8s/status.
+                    </p>
+                </section>
+
                 <!-- GRÁFICAS TEMPORALES EN VIVO -->
                 <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-200">
                     <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
@@ -425,6 +462,7 @@
                 const deployments = Array.isArray(data.deployments) ? data.deployments : [];
                 const hpas = Array.isArray(data.hpas) ? data.hpas : [];
                 const events = Array.isArray(data.events) ? data.events : [];
+                const nodes = Array.isArray(data.nodes) ? data.nodes : [];
 
                 // Guardar una muestra temporal real en cada consulta a /api/k8s/status.
                 recordLiveMetrics(pods, podMetrics, hpas);
@@ -438,6 +476,7 @@
                 renderDeployments(deployments);
                 renderHpas(hpas);
                 renderEvents(events);
+                renderNodes(nodes);
                 detectClusterChanges(pods, deployments, hpas);
                 if (lastK8sError) logEvent('[K8S] La conexión con la API de Kubernetes se ha recuperado.', 'success');
                 lastK8sError = false;
@@ -636,6 +675,181 @@
         function resizeLiveCharts() {
             if (!liveCharts) return;
             Object.values(liveCharts).forEach(chart => chart && chart.resize());
+        }
+
+
+        function renderNodes(nodes) {
+            const container = document.getElementById('nodes-grid');
+            if (!container) return;
+
+            const readyCount = nodes.filter(node => node.status === 'Ready').length;
+            const workerCount = nodes.filter(node => node.role === 'worker').length;
+
+            document.getElementById('nodes-total').textContent = nodes.length;
+            document.getElementById('nodes-ready').textContent = readyCount;
+            document.getElementById('nodes-workers').textContent = workerCount;
+
+            if (!nodes.length) {
+                container.innerHTML = `
+                    <div class="col-span-full py-6 text-center text-sm text-gray-400">
+                        No hay nodos registrados en Kubernetes.
+                    </div>`;
+                return;
+            }
+
+            const numberOrNull = value => {
+                if (value === null || value === undefined || value === '') return null;
+                const number = Number(value);
+                return Number.isFinite(number) ? number : null;
+            };
+
+            const percentageWidth = value => {
+                if (value === null) return 0;
+                return Math.max(0, Math.min(value, 100));
+            };
+
+            const formatMetric = (value, decimals = 1) => {
+                const number = numberOrNull(value);
+                return number === null ? 'N/D' : number.toFixed(decimals);
+            };
+
+            container.innerHTML = nodes.map(node => {
+                const usage = node.usage || {};
+                const capacity = node.capacity || {};
+                const allocatable = node.allocatable || {};
+
+                const cpuPercent = numberOrNull(usage.cpu_percent);
+                const memoryPercent = numberOrNull(usage.memory_percent);
+                const cpuUsage = numberOrNull(usage.cpu_millicores);
+                const memoryUsage = numberOrNull(usage.memory_mib);
+
+                const cpuCapacity = numberOrNull(allocatable.cpu_millicores);
+                const memoryCapacity = numberOrNull(allocatable.memory_mib);
+
+                const ready = node.status === 'Ready';
+                const worker = node.role === 'worker';
+
+                const statusClass = ready
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700';
+
+                const cpuBarClass = cpuPercent !== null && cpuPercent >= 85
+                    ? 'bg-red-500'
+                    : 'bg-blue-600';
+
+                const memoryBarClass = memoryPercent !== null && memoryPercent >= 85
+                    ? 'bg-red-500'
+                    : 'bg-purple-600';
+
+                const pods = Array.isArray(node.default_namespace_pods)
+                    ? node.default_namespace_pods
+                    : [];
+
+                const podList = pods.length
+                    ? pods.map(name => `
+                        <span class="inline-flex bg-slate-100 text-slate-700 rounded-md px-2 py-1 text-[10px] font-mono break-all">
+                            ${escapeHtml(name)}
+                        </span>
+                    `).join('')
+                    : '<span class="text-xs text-gray-400">Sin Pods del namespace default</span>';
+
+                const instanceLabel = node.instance_id
+                    ? escapeHtml(node.instance_id)
+                    : 'ID EC2 no disponible';
+
+                const roleLabel = worker ? 'Worker' : 'Control Plane';
+
+                return `
+                    <article class="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow min-w-0">
+                        <div class="flex flex-wrap justify-between items-start gap-2 mb-3">
+                            <div class="min-w-0">
+                                <p class="font-bold text-slate-800 text-sm break-all">
+                                    ${escapeHtml(node.name || 'Nodo desconocido')}
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    ${roleLabel} · ${escapeHtml(node.instance_type || 'Tipo N/D')}
+                                </p>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${statusClass}">
+                                ${escapeHtml(node.status || 'Unknown')}
+                            </span>
+                        </div>
+
+                        <div class="bg-slate-50 rounded-lg p-3 mb-3">
+                            <p class="text-[10px] uppercase tracking-wide text-gray-500 font-semibold">
+                                Instancia EC2
+                            </p>
+                            <p class="font-mono text-xs text-slate-800 break-all mt-1">
+                                ${instanceLabel}
+                            </p>
+                            <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
+                                <div>
+                                    <p class="text-gray-400">IP privada</p>
+                                    <p class="font-mono text-slate-700 mt-1">
+                                        ${escapeHtml(node.private_ip || 'N/D')}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-400">Zona</p>
+                                    <p class="font-mono text-slate-700 mt-1">
+                                        ${escapeHtml(node.availability_zone || 'N/D')}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between items-center text-xs mb-1">
+                                    <span class="font-semibold text-gray-600">CPU</span>
+                                    <span class="font-mono text-slate-700">
+                                        ${cpuPercent === null ? 'N/D' : `${cpuPercent.toFixed(1)}%`}
+                                    </span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    <div class="${cpuBarClass} h-2 rounded-full transition-all duration-500"
+                                         style="width:${percentageWidth(cpuPercent)}%"></div>
+                                </div>
+                                <p class="text-[10px] text-gray-400 mt-1">
+                                    ${formatMetric(cpuUsage, 1)}m utilizados
+                                    ${cpuCapacity === null ? '' : `/ ${cpuCapacity.toFixed(0)}m asignables`}
+                                </p>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-center text-xs mb-1">
+                                    <span class="font-semibold text-gray-600">Memoria</span>
+                                    <span class="font-mono text-slate-700">
+                                        ${memoryPercent === null ? 'N/D' : `${memoryPercent.toFixed(1)}%`}
+                                    </span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    <div class="${memoryBarClass} h-2 rounded-full transition-all duration-500"
+                                         style="width:${percentageWidth(memoryPercent)}%"></div>
+                                </div>
+                                <p class="text-[10px] text-gray-400 mt-1">
+                                    ${formatMetric(memoryUsage, 1)} MiB utilizados
+                                    ${memoryCapacity === null ? '' : `/ ${memoryCapacity.toFixed(0)} MiB asignables`}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-slate-100 mt-4 pt-3">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-semibold text-gray-600">
+                                    Pods asignados
+                                </span>
+                                <span class="text-xs font-bold text-slate-700">
+                                    ${Number(node.default_namespace_pod_count || 0)}
+                                </span>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                                ${podList}
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
         }
 
         function renderPodSummary(pods) {
