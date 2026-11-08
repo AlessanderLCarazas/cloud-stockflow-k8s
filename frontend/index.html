@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GlobalBank - Dashboard & Ops</title>
+    <title>GlobalBank - Dashboard & Kubernetes Ops</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 font-sans">
-    <div class="flex h-screen overflow-hidden">
-        
-        <!-- Sidebar Navigation -->
-        <aside class="w-64 bg-slate-900 text-white flex flex-col justify-between">
+<body class="bg-gray-100 font-sans text-slate-800">
+    <div class="flex min-h-screen">
+        <aside class="w-64 shrink-0 bg-slate-900 text-white flex flex-col justify-between min-h-screen">
             <div>
                 <div class="p-6 text-2xl font-bold tracking-wider text-blue-400 flex items-center gap-2">
                     <i class="fa-solid fa-building-columns"></i> GlobalBank
@@ -26,30 +24,26 @@
                 </nav>
             </div>
             <div class="p-4 border-t border-slate-800 text-xs text-gray-500 text-center">
-                Stockflow v2.4 | Kubernetes Cluster
+                Stockflow v2.5 | Kubernetes Cluster
             </div>
         </aside>
 
-        <!-- Main Content Area -->
-        <main class="flex-1 overflow-y-auto p-8">
-            
-            <!-- Top Status Bar -->
-            <header class="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <div class="flex items-center gap-3">
-                    <span class="relative flex h-3 w-3">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                      <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+        <main class="flex-1 min-w-0 overflow-y-auto p-4 md:p-8">
+            <header class="flex flex-wrap gap-3 justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="relative flex h-3 w-3 shrink-0">
+                        <span id="header-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span id="header-dot" class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                     </span>
                     <span class="text-sm font-medium text-gray-700">Nodo Activo: <code id="pod-name" class="bg-gray-100 px-2 py-1 rounded text-blue-600 font-mono text-xs">Cargando...</code></span>
                 </div>
                 <div class="text-xs font-mono text-gray-500" id="db-engine-badge">Motor DB: Detectando...</div>
             </header>
 
-            <!-- TAB 1: RESUMEN BANCARIO -->
+            <!-- RESUMEN BANCARIO -->
             <section id="view-resumen" class="space-y-6">
                 <h1 class="text-2xl font-bold text-gray-800">Hola, bienvenido de nuevo 👋</h1>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Tarjeta de Saldo -->
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
                         <div class="text-sm opacity-80">Saldo Disponible</div>
                         <div class="text-4xl font-extrabold my-4" id="saldo-display">$ ---</div>
@@ -58,37 +52,30 @@
                             <span>12/28</span>
                         </div>
                     </div>
-
-                    <!-- Formulario Transferencias -->
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                             <i class="fa-solid fa-paper-plane text-blue-500"></i> Transferencia Inmediata
                         </h2>
                         <form onsubmit="realizarTransferencia(event)" class="space-y-4">
                             <div>
-                                <label class="block text-xs font-semibold text-gray-500 mb-1">CUENTA DESTINO</label>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1" for="destino">CUENTA DESTINO</label>
                                 <input type="text" id="destino" required placeholder="Ej. 987654321" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-gray-500 mb-1">MONTO (USD)</label>
-                                <input type="number" id="monto" required step="0.01" placeholder="0.00" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                                <label class="block text-xs font-semibold text-gray-500 mb-1" for="monto">MONTO (USD)</label>
+                                <input type="number" id="monto" required min="0.01" step="0.01" placeholder="0.00" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
                             </div>
                             <button type="submit" id="btn-transfer" class="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition">Confirmar Envío</button>
                         </form>
                     </div>
                 </div>
-
-                <!-- Tabla de Movimientos -->
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                     <h3 class="text-md font-bold text-gray-800 mb-4">Últimos Movimientos</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm">
                             <thead>
                                 <tr class="border-b text-xs text-gray-400">
-                                    <th class="pb-3">FECHA</th>
-                                    <th class="pb-3">DESCRIPCIÓN</th>
-                                    <th class="pb-3">DESTINO</th>
-                                    <th class="pb-3 text-right">MONTO</th>
+                                    <th class="pb-3">FECHA</th><th class="pb-3">DESCRIPCIÓN</th><th class="pb-3">DESTINO</th><th class="pb-3 text-right">MONTO</th>
                                 </tr>
                             </thead>
                             <tbody id="tabla-movimientos" class="divide-y text-gray-600">
@@ -99,63 +86,120 @@
                 </div>
             </section>
 
-            <!-- TAB 2: MONITORIZACIÓN Y OPERACIÓN (REQUERIMIENTO 4.9) -->
+            <!-- MONITORIZACIÓN KUBERNETES -->
             <section id="view-monitoring" class="hidden space-y-6">
-                <div class="flex justify-between items-center">
+                <div class="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-4">
                     <div>
-                        <h1 class="text-2xl font-bold text-gray-800">Panel de Monitorización & HPA</h1>
-                        <p class="text-sm text-gray-500">Telemetría de CPU, Memoria y Estado de Pods en Kubernetes</p>
+                        <h1 class="text-2xl font-bold text-gray-800">Panel de Monitorización Kubernetes</h1>
+                        <p class="text-sm text-gray-500">CPU, memoria, Pods, Deployments, eventos y escalamiento automático</p>
+                        <div class="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                            <span id="k8s-api-status" class="px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">Conectando con Kubernetes...</span>
+                            <span class="text-gray-400">Actualización automática cada 3 segundos</span>
+                            <span class="text-gray-400">Última actualización: <strong id="last-k8s-update">--</strong></span>
+                        </div>
                     </div>
-                    <!-- Botón Stress Test -->
-                    <button onclick="ejecutarPruebaCarga()" id="btn-stress" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition flex items-center gap-2 text-sm">
-                        <i class="fa-solid fa-bolt"></i> Disparar Prueba de Carga (/api/stress)
+                    <button onclick="actualizarEstadoK8s(true)" id="btn-refresh-k8s" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-rotate"></i> Actualizar ahora
                     </button>
                 </div>
 
-                <!-- Tarjetas de Métricas -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <!-- CPU Meter -->
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-semibold text-gray-600">Uso de CPU (Pod)</span>
-                            <span id="cpu-value" class="text-sm font-bold text-blue-600">0%</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                            <div id="cpu-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
-                        </div>
-                        <div class="text-xs text-gray-400 mt-2">Límite asignado: 250m</div>
+                <!-- MÉTRICAS RESUMEN -->
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">CPU del Pod activo</span><i class="fa-solid fa-microchip text-blue-500"></i></div>
+                        <div class="text-2xl font-extrabold text-blue-600" id="cpu-value">--%</div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 mt-3 overflow-hidden"><div id="cpu-bar" class="bg-blue-600 h-2.5 rounded-full" style="width:0%"></div></div>
+                        <p class="text-xs text-gray-400 mt-2">Proceso que atiende la consulta a /api/metrics</p>
                     </div>
-
-                    <!-- Memory Meter -->
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-semibold text-gray-600">Consumo de Memoria</span>
-                            <span id="mem-value" class="text-sm font-bold text-purple-600">0 MB</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                            <div id="mem-bar" class="bg-purple-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
-                        </div>
-                        <div class="text-xs text-gray-400 mt-2">Límite RAM: 256 MiB</div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">Memoria del Pod activo</span><i class="fa-solid fa-memory text-purple-500"></i></div>
+                        <div class="text-2xl font-extrabold text-purple-600" id="mem-value">-- MiB</div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 mt-3 overflow-hidden"><div id="mem-bar" class="bg-purple-600 h-2.5 rounded-full" style="width:0%"></div></div>
+                        <p class="text-xs text-gray-400 mt-2">Límite configurado del contenedor: 256 MiB</p>
                     </div>
-
-                    <!-- Pod Status Card -->
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                        <span class="text-sm font-semibold text-gray-600">Estado Liveness / Readiness</span>
-                        <div class="mt-2 flex items-center gap-2">
-                            <span class="px-3 py-1 bg-green-100 text-green-700 font-semibold text-xs rounded-full">200 OK - Healthy</span>
-                        </div>
-                        <div class="text-xs text-gray-400 mt-3">Health Check Route: <code>GET /</code></div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">Pods detectados</span><i class="fa-solid fa-cubes text-cyan-600"></i></div>
+                        <div class="text-2xl font-extrabold text-slate-800" id="pods-total">--</div>
+                        <p class="text-xs text-gray-500 mt-2"><span id="pods-running">--</span> Running · <span id="pods-not-ready">--</span> no listos</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-gray-600">Deployments</span><i class="fa-solid fa-diagram-project text-emerald-600"></i></div>
+                        <div class="text-2xl font-extrabold text-slate-800" id="deployments-total">--</div>
+                        <p class="text-xs text-gray-500 mt-2">Con réplicas disponibles: <span id="deployments-ready">--</span></p>
                     </div>
                 </div>
 
-                <!-- Consola de Eventos y Logs en Vivo -->
-                <div class="bg-slate-950 text-green-400 p-6 rounded-2xl font-mono text-xs shadow-xl border border-slate-800">
-                    <div class="flex justify-between items-center pb-4 border-b border-slate-800 mb-4 text-gray-400">
-                        <span class="flex items-center gap-2"><i class="fa-solid fa-terminal"></i> Terminal de Eventos y Logs en Vivo</span>
-                        <button onclick="limpiarLogs()" class="hover:text-white"><i class="fa-solid fa-trash-can"></i> Limpiar</button>
+                <!-- HPA -->
+                <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                        <div><h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-arrows-up-down-left-right text-blue-600 mr-2"></i>Horizontal Pod Autoscaler (HPA)</h2><p class="text-xs text-gray-500 mt-1">Uso de CPU frente al objetivo y número de réplicas</p></div>
+                        <span class="text-xs text-gray-500">Datos de /api/k8s/status</span>
                     </div>
-                    <div id="log-console" class="h-48 overflow-y-auto space-y-1">
-                        <div>[SYSTEM] Iniciando monitor de eventos K8s...</div>
+                    <div id="hpa-container" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="text-sm text-gray-400">Esperando datos del HPA...</div>
+                    </div>
+                </div>
+
+                <!-- PRUEBA DE CARGA -->
+                <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-gauge-high text-red-600 mr-2"></i>Prueba de carga controlada</h2>
+                            <p class="text-xs text-gray-500 mt-1 max-w-3xl">Genera solicitudes concurrentes al endpoint de cálculo <code>/api/stress</code> para observar el consumo de CPU y la reacción del HPA. No realiza transferencias ni modifica los datos bancarios.</p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">Máximo: 10 usuarios · 120 segundos</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-5 gap-3 mt-5 items-end">
+                        <div>
+                            <label for="load-vus" class="block text-xs font-semibold text-gray-600 mb-1">Usuarios virtuales</label>
+                            <input id="load-vus" type="number" min="1" max="10" value="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label for="load-duration" class="block text-xs font-semibold text-gray-600 mb-1">Duración</label>
+                            <select id="load-duration" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="15">15 segundos</option><option value="30" selected>30 segundos</option><option value="45">45 segundos</option><option value="60">60 segundos</option><option value="90">90 segundos</option><option value="120">120 segundos</option>
+                            </select>
+                        </div>
+                        <button onclick="iniciarPruebaCarga()" id="btn-start-load" class="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-4 py-2.5 rounded-lg transition text-sm"><i class="fa-solid fa-play mr-1"></i> Iniciar prueba</button>
+                        <button onclick="detenerPruebaCarga()" id="btn-stop-load" disabled class="bg-slate-700 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2.5 rounded-lg transition text-sm"><i class="fa-solid fa-stop mr-1"></i> Detener</button>
+                        <div class="text-xs text-gray-500"><span id="load-status" class="inline-flex px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-semibold">Inactiva</span><p class="mt-1">Tiempo: <strong id="load-elapsed">0 s</strong></p></div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Solicitudes completadas</p><p id="load-completed" class="text-2xl font-bold">0</p></div>
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Correctas</p><p id="load-success" class="text-2xl font-bold text-emerald-600">0</p></div>
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Errores</p><p id="load-errors" class="text-2xl font-bold text-red-600">0</p></div>
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Solicitudes por segundo</p><p id="load-rps" class="text-2xl font-bold text-blue-600">0.00</p></div>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500"><span>Latencia media: <strong id="load-latency">-- ms</strong></span><span>Solicitudes en curso: <strong id="load-inflight">0</strong></span></div>
+                    <p class="text-xs text-amber-700 bg-amber-50 rounded-lg p-3 mt-4"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Ejecuta la prueba durante la demostración y deténla al finalizar. La carga es real y puede elevar temporalmente el uso de CPU; inicia con 4 usuarios y aumenta solo si el clúster se mantiene estable.</p>
+                </div>
+
+                <!-- DEPLOYMENTS -->
+                <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex justify-between items-center gap-2 mb-4"><div><h2 class="text-lg font-bold text-gray-800">Deployments</h2><p class="text-xs text-gray-500 mt-1">Réplicas deseadas, listas y disponibles</p></div><i class="fa-solid fa-layer-group text-blue-600"></i></div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm min-w-[600px]"><thead><tr class="border-b text-xs text-gray-400"><th class="pb-3">DEPLOYMENT</th><th class="pb-3 text-center">DESEADAS</th><th class="pb-3 text-center">LISTAS</th><th class="pb-3 text-center">DISPONIBLES</th><th class="pb-3 text-right">ESTADO</th></tr></thead><tbody id="deployments-table" class="divide-y text-gray-700"><tr><td colspan="5" class="py-4 text-center text-gray-400">Esperando datos...</td></tr></tbody></table>
+                    </div>
+                </div>
+
+                <!-- PODS -->
+                <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-wrap justify-between items-center gap-2 mb-4"><div><h2 class="text-lg font-bold text-gray-800">Pods en Kubernetes</h2><p class="text-xs text-gray-500 mt-1">Inventario y métricas por Pod; se actualiza automáticamente</p></div><span id="pod-count-label" class="text-xs text-gray-500">-- Pods</span></div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm min-w-[900px]"><thead><tr class="border-b text-xs text-gray-400"><th class="pb-3">POD</th><th class="pb-3">ESTADO</th><th class="pb-3 text-center">READY</th><th class="pb-3 text-center">REINICIOS</th><th class="pb-3 text-right">CPU</th><th class="pb-3 text-right">MEMORIA</th><th class="pb-3">IP</th></tr></thead><tbody id="pods-table" class="divide-y text-gray-700"><tr><td colspan="7" class="py-4 text-center text-gray-400">Esperando datos...</td></tr></tbody></table>
+                    </div>
+                </div>
+
+                <!-- EVENTOS Y CONSOLA -->
+                <div class="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center gap-2 mb-4"><div><h2 class="text-lg font-bold text-gray-800">Eventos de Kubernetes</h2><p class="text-xs text-gray-500 mt-1">Eventos entregados por el endpoint de monitorización</p></div><i class="fa-solid fa-bell text-amber-500"></i></div>
+                        <div class="overflow-x-auto"><table class="w-full text-left text-sm min-w-[520px]"><thead><tr class="border-b text-xs text-gray-400"><th class="pb-3">TIPO</th><th class="pb-3">RAZÓN</th><th class="pb-3">OBJETO</th><th class="pb-3">MENSAJE</th></tr></thead><tbody id="events-table" class="divide-y text-gray-600"><tr><td colspan="4" class="py-4 text-center text-gray-400">Esperando eventos...</td></tr></tbody></table></div>
+                        <p id="events-note" class="text-xs text-gray-400 mt-3">Los eventos dependen de lo que devuelva la API de Kubernetes.</p>
+                    </div>
+                    <div class="bg-slate-950 text-green-400 p-5 rounded-2xl font-mono text-xs shadow-xl border border-slate-800">
+                        <div class="flex justify-between items-center pb-3 border-b border-slate-800 mb-3 text-gray-400"><span class="flex items-center gap-2"><i class="fa-solid fa-terminal"></i> Consola de monitorización</span><button onclick="limpiarLogs()" class="hover:text-white"><i class="fa-solid fa-trash-can"></i> Limpiar</button></div>
+                        <div id="log-console" class="h-64 overflow-y-auto space-y-1" aria-live="polite"><div>[SYSTEM] Monitor de Kubernetes iniciado.</div></div>
                     </div>
                 </div>
             </section>
@@ -163,146 +207,443 @@
     </div>
 
     <script>
-        const API_URL = "http://34.234.91.173:30001";
+        // El frontend y el backend se publican en la misma IP, usando NodePorts distintos.
+        const API_URL = `${window.location.protocol}//${window.location.hostname}:30001`;
+        const POLLING_MS = 3000;
+        const MAX_VIRTUAL_USERS = 10;
+        const MAX_TEST_SECONDS = 120;
+
+        let previousPodNames = null;
+        let previousDeploymentState = {};
+        let previousHpaState = {};
+        let lastK8sError = false;
+        let isK8sPolling = false;
+        let lastMetricLogAt = 0;
+
+        const loadTest = {
+            running: false,
+            stopRequested: false,
+            startedAt: null,
+            endAt: null,
+            workers: 0,
+            inFlight: 0,
+            completed: 0,
+            success: 0,
+            errors: 0,
+            latencyTotal: 0
+        };
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[character]));
+        }
+
+        function setBadge(elementId, text, kind = 'neutral') {
+            const element = document.getElementById(elementId);
+            const styles = {
+                good: 'bg-green-100 text-green-700',
+                warn: 'bg-amber-100 text-amber-700',
+                bad: 'bg-red-100 text-red-700',
+                neutral: 'bg-gray-100 text-gray-600'
+            };
+            element.className = `px-2.5 py-1 rounded-full text-xs font-semibold ${styles[kind] || styles.neutral}`;
+            element.textContent = text;
+        }
+
+        async function fetchJson(path, options = {}) {
+            const response = await fetch(API_URL + path, { cache: 'no-store', ...options });
+            let data;
+            try { data = await response.json(); }
+            catch (_) { throw new Error(`Respuesta no JSON (${response.status}) en ${path}`); }
+            if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status} en ${path}`);
+            return data;
+        }
 
         function switchTab(tab) {
-            document.getElementById('view-resumen').classList.add('hidden');
-            document.getElementById('view-monitoring').classList.add('hidden');
-            document.getElementById('tab-btn-resumen').className = "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition-all";
-            document.getElementById('tab-btn-monitoring').className = "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition-all";
-
-            if(tab === 'resumen') {
-                document.getElementById('view-resumen').classList.remove('hidden');
-                document.getElementById('tab-btn-resumen').className = "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium bg-blue-600 text-white transition-all";
-            } else {
-                document.getElementById('view-monitoring').classList.remove('hidden');
-                document.getElementById('tab-btn-monitoring').className = "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium bg-blue-600 text-white transition-all";
+            const isMonitoring = tab === 'monitoring';
+            document.getElementById('view-resumen').classList.toggle('hidden', isMonitoring);
+            document.getElementById('view-monitoring').classList.toggle('hidden', !isMonitoring);
+            document.getElementById('tab-btn-resumen').className = isMonitoring
+                ? 'w-full flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition-all'
+                : 'w-full flex items-center gap-3 px-6 py-3 text-sm font-medium bg-blue-600 text-white transition-all';
+            document.getElementById('tab-btn-monitoring').className = isMonitoring
+                ? 'w-full flex items-center gap-3 px-6 py-3 text-sm font-medium bg-blue-600 text-white transition-all'
+                : 'w-full flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition-all';
+            if (isMonitoring) {
+                actualizarEstadoK8s(true);
+                actualizarMetricas();
             }
         }
 
         async function cargarDatos() {
             try {
-                const res = await fetch(API_URL + '/api/cuenta');
-                const data = await res.json();
-                
-                document.getElementById('saldo-display').innerText = '$ ' + data.saldo.toLocaleString('en-US', {minimumFractionDigits: 2});
-                document.getElementById('pod-name').innerText = data.pod;
-                document.getElementById('db-engine-badge').innerText = 'Motor DB: ' + data.motor_db;
-
-                // Renderizar lista de movimientos
+                const data = await fetchJson('/api/cuenta');
+                const saldo = Number(data.saldo || 0);
+                document.getElementById('saldo-display').innerText = '$ ' + saldo.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                document.getElementById('pod-name').innerText = data.pod || 'No informado';
+                document.getElementById('db-engine-badge').innerText = 'Motor DB: ' + (data.motor_db || 'No informado');
+                document.getElementById('header-dot').className = 'relative inline-flex rounded-full h-3 w-3 bg-green-500';
                 const tabla = document.getElementById('tabla-movimientos');
-                if (data.movimientos && data.movimientos.length > 0) {
+                if (Array.isArray(data.movimientos) && data.movimientos.length > 0) {
                     tabla.innerHTML = data.movimientos.map(m => `
                         <tr class="hover:bg-gray-50">
-                            <td class="py-3 font-mono text-xs text-gray-400">${m.fecha || 'N/A'}</td>
-                            <td class="py-3 font-medium text-gray-800">${m.tipo}</td>
-                            <td class="py-3 text-gray-500">${m.destino}</td>
-                            <td class="py-3 text-right font-bold text-red-500">-$${m.monto.toFixed(2)}</td>
-                        </tr>
-                    `).join('');
+                            <td class="py-3 font-mono text-xs text-gray-400">${escapeHtml(m.fecha || 'N/A')}</td>
+                            <td class="py-3 font-medium text-gray-800">${escapeHtml(m.tipo)}</td>
+                            <td class="py-3 text-gray-500">${escapeHtml(m.destino)}</td>
+                            <td class="py-3 text-right font-bold text-gray-800">$${Number(m.monto || 0).toFixed(2)}</td>
+                        </tr>`).join('');
                 } else {
-                    tabla.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-gray-400">Sin movimientos recientes</td></tr>`;
+                    tabla.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-400">Sin movimientos recientes</td></tr>';
                 }
-            } catch(e) {
-                logEvent(`[ERROR] Fallo de conexión con backend: ${e.message}`, 'error');
+            } catch (error) {
+                document.getElementById('header-dot').className = 'relative inline-flex rounded-full h-3 w-3 bg-red-500';
+                logEvent(`[ERROR] Fallo de conexión con backend: ${error.message}`, 'error');
             }
         }
 
-        async function realizarTransferencia(e) {
-            e.preventDefault();
-            const btn = document.getElementById('btn-transfer');
-            const destino = document.getElementById('destino').value;
-            const monto = parseFloat(document.getElementById('monto').value);
-
-            btn.disabled = true;
-            btn.innerText = 'Procesando...';
-
+        async function realizarTransferencia(event) {
+            event.preventDefault();
+            const button = document.getElementById('btn-transfer');
+            const destino = document.getElementById('destino').value.trim();
+            const monto = Number.parseFloat(document.getElementById('monto').value);
+            if (!destino || !Number.isFinite(monto) || monto <= 0) {
+                logEvent('[TRANSFERENCIA] Ingresa una cuenta y un monto válido.', 'warn');
+                return;
+            }
+            button.disabled = true;
+            button.innerText = 'Procesando...';
             try {
-                const res = await fetch(API_URL + '/api/transfer', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({destino, monto})
+                const data = await fetchJson('/api/transfer', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ destino, monto })
                 });
-                const data = await res.json();
-                if(res.ok) {
-                    logEvent(`[POST /api/transfer] Éxito: $${monto} a ${destino} (Pod: ${data.pod})`, 'success');
-                    document.getElementById('destino').value = '';
-                    document.getElementById('monto').value = '';
-                    cargarDatos();
-                } else {
-                    logEvent(`[POST /api/transfer] Error: ${data.error}`, 'error');
-                }
-            } catch(err) {
-                logEvent(`[POST /api/transfer] Fallo de red`, 'error');
+                logEvent(`[POST /api/transfer] Éxito: $${monto.toFixed(2)} a ${destino} (Pod: ${data.pod || 'N/A'})`, 'success');
+                document.getElementById('destino').value = '';
+                document.getElementById('monto').value = '';
+                cargarDatos();
+            } catch (error) {
+                logEvent(`[POST /api/transfer] ${error.message}`, 'error');
             } finally {
-                btn.disabled = false;
-                btn.innerText = 'Confirmar Envío';
+                button.disabled = false;
+                button.innerText = 'Confirmar Envío';
             }
         }
 
         async function actualizarMetricas() {
             try {
-                const res = await fetch(API_URL + '/api/metrics');
-                const data = await res.json();
-                
-                document.getElementById('cpu-value').innerText = data.cpu_percent + '%';
-                document.getElementById('cpu-bar').style.width = Math.min(data.cpu_percent, 100) + '%';
-                
-                if(data.cpu_percent > 70) {
-                    document.getElementById('cpu-bar').className = "bg-red-600 h-3 rounded-full transition-all duration-500";
-                } else {
-                    document.getElementById('cpu-bar').className = "bg-blue-600 h-3 rounded-full transition-all duration-500";
+                const data = await fetchJson('/api/metrics');
+                const cpu = Math.max(0, Number(data.cpu_percent) || 0);
+                const memory = Math.max(0, Number(data.memory_mb) || 0);
+                const memoryLimit = Math.max(1, Number(data.memory_limit_mb) || 256);
+                document.getElementById('cpu-value').innerText = `${cpu.toFixed(1)}%`;
+                document.getElementById('cpu-bar').style.width = `${Math.min(cpu, 100)}%`;
+                document.getElementById('cpu-bar').className = `${cpu >= 70 ? 'bg-red-600' : 'bg-blue-600'} h-2.5 rounded-full transition-all duration-500`;
+                document.getElementById('mem-value').innerText = `${memory.toFixed(1)} MiB`;
+                document.getElementById('mem-bar').style.width = `${Math.min((memory / memoryLimit) * 100, 100)}%`;
+                document.getElementById('mem-bar').className = `${memory / memoryLimit >= 0.85 ? 'bg-red-600' : 'bg-purple-600'} h-2.5 rounded-full transition-all duration-500`;
+                const now = Date.now();
+                if (now - lastMetricLogAt > 15000) {
+                    logEvent(`[METRICS] API OK | Pod: ${data.pod || 'N/A'} | CPU proceso: ${cpu.toFixed(1)}% | RAM: ${memory.toFixed(1)} MiB`);
+                    lastMetricLogAt = now;
                 }
-
-                document.getElementById('mem-value').innerText = data.memory_mb + ' MB';
-                const memPct = (data.memory_mb / data.memory_limit_mb) * 100;
-                document.getElementById('mem-bar').style.width = Math.min(memPct, 100) + '%';
-                
-                logEvent(`[METRICS] Polling OK | Pod: ${data.pod} | CPU: ${data.cpu_percent}% | RAM: ${data.memory_mb}MB`);
-            } catch(e) {
-                logEvent(`[METRICS ERROR] No se pudieron obtener métricas del backend`, 'error');
+            } catch (error) {
+                logEvent(`[METRICS ERROR] ${error.message}`, 'error');
             }
         }
 
-        async function ejecutarPruebaCarga() {
-            const btn = document.getElementById('btn-stress');
-            btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Generando Pico CPU...`;
-            logEvent(`[STRESS TEST] Lanzando calculo masivo de CPU en /api/stress...`, 'warn');
-
+        async function actualizarEstadoK8s(manual = false) {
+            if (isK8sPolling) return;
+            isK8sPolling = true;
+            const refreshButton = document.getElementById('btn-refresh-k8s');
+            if (manual) refreshButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Actualizando...';
             try {
-                const res = await fetch(API_URL + '/api/stress');
-                const data = await res.json();
-                logEvent(`[STRESS TEST COMPLETO] Respuesta de Pod: ${data.pod} - ${data.mensaje}`, 'success');
-            } catch(e) {
-                logEvent(`[STRESS ERROR] Error ejecutando test de carga`, 'error');
+                const data = await fetchJson('/api/k8s/status');
+                if (data.status !== 'ok') throw new Error(data.message || 'La API de Kubernetes informó un estado no válido.');
+                const pods = Array.isArray(data.pods) ? data.pods : [];
+                const podMetrics = Array.isArray(data.pod_metrics) ? data.pod_metrics : [];
+                const deployments = Array.isArray(data.deployments) ? data.deployments : [];
+                const hpas = Array.isArray(data.hpas) ? data.hpas : [];
+                const events = Array.isArray(data.events) ? data.events : [];
+
+                setBadge('k8s-api-status', 'API Kubernetes: conectada', 'good');
+                document.getElementById('header-dot').className = 'relative inline-flex rounded-full h-3 w-3 bg-green-500';
+                document.getElementById('last-k8s-update').textContent = new Date().toLocaleTimeString();
+                renderPodSummary(pods);
+                renderPods(pods, podMetrics);
+                renderDeployments(deployments);
+                renderHpas(hpas);
+                renderEvents(events);
+                detectClusterChanges(pods, deployments, hpas);
+                if (lastK8sError) logEvent('[K8S] La conexión con la API de Kubernetes se ha recuperado.', 'success');
+                lastK8sError = false;
+            } catch (error) {
+                setBadge('k8s-api-status', 'API Kubernetes: error de conexión', 'bad');
+                document.getElementById('header-dot').className = 'relative inline-flex rounded-full h-3 w-3 bg-red-500';
+                if (!lastK8sError) logEvent(`[K8S ERROR] ${error.message}`, 'error');
+                lastK8sError = true;
             } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-bolt"></i> Disparar Prueba de Carga (/api/stress)`;
+                isK8sPolling = false;
+                if (manual) refreshButton.innerHTML = '<i class="fa-solid fa-rotate"></i> Actualizar ahora';
             }
         }
 
-        function logEvent(msg, type='info') {
-            const consoleBox = document.getElementById('log-console');
-            const time = new Date().toLocaleTimeString();
-            let color = 'text-green-400';
-            if(type === 'error') color = 'text-red-400 font-bold';
-            if(type === 'warn') color = 'text-yellow-400 font-bold';
-            if(type === 'success') color = 'text-cyan-300 font-bold';
+        function renderPodSummary(pods) {
+            const running = pods.filter(pod => pod.status === 'Running').length;
+            const ready = pods.filter(pod => Number(pod.ready || 0) >= Number(pod.total_containers || 1)).length;
+            document.getElementById('pods-total').textContent = pods.length;
+            document.getElementById('pods-running').textContent = running;
+            document.getElementById('pods-not-ready').textContent = pods.length - ready;
+        }
 
-            consoleBox.innerHTML += `<div class="${color}">[${time}] ${msg}</div>`;
+        function renderPods(pods, podMetrics) {
+            const tbody = document.getElementById('pods-table');
+            document.getElementById('pod-count-label').textContent = `${pods.length} Pods detectados`;
+            if (!pods.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="py-4 text-center text-gray-400">No hay Pods en el namespace consultado.</td></tr>';
+                return;
+            }
+            const metricsByName = new Map(podMetrics.map(metric => [metric.name, metric]));
+            tbody.innerHTML = pods.map(pod => {
+                const metric = metricsByName.get(pod.name) || {};
+                const readyText = `${Number(pod.ready || 0)}/${Number(pod.total_containers || 0)}`;
+                const statusKind = pod.status === 'Running' ? 'bg-green-100 text-green-700' : (pod.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700');
+                return `<tr class="hover:bg-slate-50">
+                    <td class="py-3 pr-4"><div class="font-mono text-xs text-slate-800 break-all">${escapeHtml(pod.name)}</div><div class="text-xs text-gray-400 mt-1">Nodo: ${escapeHtml(pod.node || 'N/A')}</div></td>
+                    <td class="py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusKind}">${escapeHtml(pod.status || 'Unknown')}</span></td>
+                    <td class="py-3 text-center font-mono text-xs">${readyText}</td>
+                    <td class="py-3 text-center">${Number(pod.restarts || 0)}</td>
+                    <td class="py-3 text-right font-mono text-xs">${metric.cpu_millicores == null ? 'N/D' : `${Number(metric.cpu_millicores).toFixed(2)}m`}</td>
+                    <td class="py-3 text-right font-mono text-xs">${metric.memory_mib == null ? 'N/D' : `${Number(metric.memory_mib).toFixed(2)} MiB`}</td>
+                    <td class="py-3 pl-4 font-mono text-xs text-gray-500">${escapeHtml(pod.pod_ip || 'N/A')}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderDeployments(deployments) {
+            const tbody = document.getElementById('deployments-table');
+            document.getElementById('deployments-total').textContent = deployments.length;
+            const readyCount = deployments.filter(item => Number(item.ready_replicas || 0) >= Number(item.desired_replicas || 0)).length;
+            document.getElementById('deployments-ready').textContent = `${readyCount}/${deployments.length}`;
+            if (!deployments.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-gray-400">No hay Deployments disponibles.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = deployments.map(item => {
+                const desired = Number(item.desired_replicas || 0);
+                const ready = Number(item.ready_replicas || 0);
+                const available = Number(item.available_replicas || 0);
+                const healthy = ready >= desired && available >= desired;
+                return `<tr class="hover:bg-slate-50">
+                    <td class="py-3 font-mono text-xs">${escapeHtml(item.name)}</td>
+                    <td class="py-3 text-center">${desired}</td><td class="py-3 text-center">${ready}</td><td class="py-3 text-center">${available}</td>
+                    <td class="py-3 text-right"><span class="px-2 py-1 rounded-full text-xs font-semibold ${healthy ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">${healthy ? 'Disponible' : 'En progreso'}</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderHpas(hpas) {
+            const container = document.getElementById('hpa-container');
+            if (!hpas.length) {
+                container.innerHTML = '<div class="text-sm text-gray-400">No se encontraron HPAs en el namespace consultado.</div>';
+                return;
+            }
+            container.innerHTML = hpas.map(hpa => {
+                const metrics = Array.isArray(hpa.current_metrics) ? hpa.current_metrics : [];
+                const cpuMetric = metrics.find(metric => metric.resource === 'cpu') || metrics[0] || {};
+                const current = Number.isFinite(Number(cpuMetric.current)) ? Number(cpuMetric.current) : null;
+                const target = Number.isFinite(Number(cpuMetric.target)) ? Number(cpuMetric.target) : null;
+                const currentReplicas = Number(hpa.current_replicas || 0);
+                const desiredReplicas = Number(hpa.desired_replicas || 0);
+                const minReplicas = Number(hpa.min_replicas || 0);
+                const maxReplicas = Number(hpa.max_replicas || 0);
+                const ratio = current !== null && target > 0 ? Math.min((current / target) * 100, 100) : 0;
+                const metricText = current !== null && target !== null ? `${current}% / ${target}%` : 'Métrica no disponible';
+                return `<div class="border border-slate-200 rounded-xl p-4">
+                    <div class="flex flex-wrap justify-between items-start gap-2"><div><p class="font-bold text-slate-800">${escapeHtml(hpa.name)}</p><p class="text-xs text-gray-500 mt-1">Deployment: ${escapeHtml(hpa.target || 'N/A')}</p></div><span class="px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">CPU: ${metricText}</span></div>
+                    <div class="mt-4"><div class="flex justify-between text-xs text-gray-500 mb-1"><span>Uso actual frente al objetivo</span><span>${current !== null && target !== null ? `${current}% de ${target}%` : 'Sin datos'}</span></div><div class="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden"><div class="h-2.5 rounded-full ${current !== null && target !== null && current >= target ? 'bg-red-500' : 'bg-blue-600'}" style="width:${ratio}%"></div></div></div>
+                    <div class="grid grid-cols-3 gap-2 mt-4 text-center"><div class="bg-slate-50 rounded-lg p-2"><p class="text-lg font-bold">${currentReplicas}</p><p class="text-[11px] text-gray-500">Actuales</p></div><div class="bg-slate-50 rounded-lg p-2"><p class="text-lg font-bold text-blue-700">${desiredReplicas}</p><p class="text-[11px] text-gray-500">Deseadas</p></div><div class="bg-slate-50 rounded-lg p-2"><p class="text-lg font-bold">${minReplicas}–${maxReplicas}</p><p class="text-[11px] text-gray-500">Mín.–máx.</p></div></div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderEvents(events) {
+            const tbody = document.getElementById('events-table');
+            const note = document.getElementById('events-note');
+            if (!events.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-400">El endpoint devolvió una lista vacía.</td></tr>';
+                note.textContent = 'La API no está entregando eventos en esta consulta. Esto no demuestra que el clúster no tenga eventos.';
+                return;
+            }
+            note.textContent = `${events.length} eventos recibidos. Se muestran los más recientes entregados por la API.`;
+            tbody.innerHTML = events.slice(0, 20).map(event => {
+                const involved = event.involved_object || {};
+                return `<tr class="align-top hover:bg-slate-50"><td class="py-2 pr-2">${escapeHtml(event.type || 'N/A')}</td><td class="py-2 pr-2 font-medium">${escapeHtml(event.reason || 'N/A')}</td><td class="py-2 pr-2 font-mono text-xs">${escapeHtml(involved.name || event.object_name || 'N/A')}</td><td class="py-2 text-xs min-w-[180px]">${escapeHtml(event.message || '')}</td></tr>`;
+            }).join('');
+        }
+
+        function detectClusterChanges(pods, deployments, hpas) {
+            const currentNames = new Set(pods.map(pod => pod.name));
+            if (previousPodNames === null) {
+                logEvent(`[K8S] Inventario inicial recibido: ${pods.length} Pods.`, 'success');
+            } else {
+                for (const name of currentNames) if (!previousPodNames.has(name)) logEvent(`[POD CREADO/DETECTADO] ${name}`, 'success');
+                for (const name of previousPodNames) if (!currentNames.has(name)) logEvent(`[POD ELIMINADO/YA NO PRESENTE] ${name}`, 'warn');
+            }
+            previousPodNames = currentNames;
+
+            for (const deployment of deployments) {
+                const state = `${deployment.desired_replicas}/${deployment.ready_replicas}/${deployment.available_replicas}`;
+                const old = previousDeploymentState[deployment.name];
+                if (old !== undefined && old !== state) logEvent(`[DEPLOYMENT] ${deployment.name}: deseadas/listas/disponibles ${old} -> ${state}`, 'warn');
+                previousDeploymentState[deployment.name] = state;
+            }
+
+            for (const hpa of hpas) {
+                const state = `${hpa.current_replicas}/${hpa.desired_replicas}`;
+                const old = previousHpaState[hpa.name];
+                if (old !== undefined && old !== state) logEvent(`[HPA] ${hpa.name}: réplicas actuales/deseadas ${old} -> ${state}`, 'warn');
+                previousHpaState[hpa.name] = state;
+            }
+        }
+
+        function logEvent(message, type = 'info') {
+            const consoleBox = document.getElementById('log-console');
+            if (!consoleBox) return;
+            const time = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            const colors = { error: 'text-red-400 font-bold', warn: 'text-yellow-300 font-bold', success: 'text-cyan-300 font-bold', info: 'text-green-400' };
+            line.className = colors[type] || colors.info;
+            line.textContent = `[${time}] ${message}`;
+            consoleBox.appendChild(line);
+            while (consoleBox.children.length > 250) consoleBox.removeChild(consoleBox.firstChild);
             consoleBox.scrollTop = consoleBox.scrollHeight;
         }
 
         function limpiarLogs() {
             document.getElementById('log-console').innerHTML = '';
+            logEvent('Consola limpiada. La monitorización continúa activa.');
         }
 
-        // Carga inicial y temporizadores de refresco
+        function resetLoadStats() {
+            loadTest.completed = 0;
+            loadTest.success = 0;
+            loadTest.errors = 0;
+            loadTest.latencyTotal = 0;
+            loadTest.inFlight = 0;
+            updateLoadStats();
+        }
+
+        function updateLoadStats() {
+            const elapsedSeconds = loadTest.startedAt ? Math.max((Date.now() - loadTest.startedAt) / 1000, 0.1) : 0;
+            const rps = elapsedSeconds > 0 ? loadTest.completed / elapsedSeconds : 0;
+            const averageLatency = loadTest.completed > 0 ? loadTest.latencyTotal / loadTest.completed : 0;
+            document.getElementById('load-completed').textContent = loadTest.completed;
+            document.getElementById('load-success').textContent = loadTest.success;
+            document.getElementById('load-errors').textContent = loadTest.errors;
+            document.getElementById('load-rps').textContent = rps.toFixed(2);
+            document.getElementById('load-latency').textContent = loadTest.completed ? `${averageLatency.toFixed(0)} ms` : '-- ms';
+            document.getElementById('load-inflight').textContent = loadTest.inFlight;
+            document.getElementById('load-elapsed').textContent = `${Math.floor(elapsedSeconds)} s`;
+        }
+
+        async function ejecutarUsuarioVirtual(userNumber) {
+            while (loadTest.running && !loadTest.stopRequested && Date.now() < loadTest.endAt) {
+                const started = performance.now();
+                loadTest.inFlight++;
+                document.getElementById('load-inflight').textContent = loadTest.inFlight;
+                try {
+                    const response = await fetch(API_URL + '/api/stress', { method: 'GET', cache: 'no-store' });
+                    let data = {};
+                    try { data = await response.json(); } catch (_) { /* La respuesta HTTP sigue contando como solicitud. */ }
+                    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+                    loadTest.success++;
+                } catch (error) {
+                    loadTest.errors++;
+                    if (loadTest.errors <= 3) logEvent(`[LOAD TEST] Usuario ${userNumber}: ${error.message}`, 'error');
+                } finally {
+                    const latency = performance.now() - started;
+                    loadTest.latencyTotal += latency;
+                    loadTest.completed++;
+                    loadTest.inFlight = Math.max(0, loadTest.inFlight - 1);
+                    updateLoadStats();
+                }
+                // Pausa breve para evitar un bucle de solicitudes sin descanso entre respuestas.
+                if (loadTest.running && !loadTest.stopRequested && Date.now() < loadTest.endAt) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+        }
+
+        async function iniciarPruebaCarga() {
+            if (loadTest.running) return;
+            const usersInput = document.getElementById('load-vus');
+            const durationInput = document.getElementById('load-duration');
+            const users = Number.parseInt(usersInput.value, 10);
+            const duration = Number.parseInt(durationInput.value, 10);
+            if (!Number.isInteger(users) || users < 1 || users > MAX_VIRTUAL_USERS) {
+                logEvent(`La cantidad de usuarios debe estar entre 1 y ${MAX_VIRTUAL_USERS}.`, 'warn');
+                usersInput.value = '4';
+                return;
+            }
+            if (!Number.isInteger(duration) || duration < 1 || duration > MAX_TEST_SECONDS) {
+                logEvent(`La duración debe estar entre 1 y ${MAX_TEST_SECONDS} segundos.`, 'warn');
+                return;
+            }
+
+            resetLoadStats();
+            loadTest.running = true;
+            loadTest.stopRequested = false;
+            loadTest.startedAt = Date.now();
+            loadTest.endAt = loadTest.startedAt + duration * 1000;
+            loadTest.workers = users;
+            usersInput.disabled = true;
+            durationInput.disabled = true;
+            document.getElementById('btn-start-load').disabled = true;
+            document.getElementById('btn-stop-load').disabled = false;
+            setBadge('load-status', 'En ejecución', 'warn');
+            logEvent(`[LOAD TEST] Inicio: ${users} usuarios virtuales durante ${duration}s contra GET /api/stress.`, 'warn');
+            const timer = setInterval(() => {
+                updateLoadStats();
+                if (Date.now() >= loadTest.endAt && loadTest.running) {
+                    loadTest.stopRequested = true;
+                }
+            }, 500);
+
+            try {
+                const workers = Array.from({ length: users }, (_, index) => ejecutarUsuarioVirtual(index + 1));
+                await Promise.all(workers);
+            } finally {
+                clearInterval(timer);
+                loadTest.running = false;
+                loadTest.stopRequested = true;
+                loadTest.workers = 0;
+                usersInput.disabled = false;
+                durationInput.disabled = false;
+                document.getElementById('btn-start-load').disabled = false;
+                document.getElementById('btn-stop-load').disabled = true;
+                setBadge('load-status', 'Finalizada', 'good');
+                updateLoadStats();
+                logEvent(`[LOAD TEST] Finalizado: ${loadTest.completed} solicitudes, ${loadTest.success} correctas y ${loadTest.errors} errores.`, 'success');
+                actualizarEstadoK8s(true);
+            }
+        }
+
+        function detenerPruebaCarga() {
+            if (!loadTest.running) return;
+            loadTest.stopRequested = true;
+            document.getElementById('btn-stop-load').disabled = true;
+            setBadge('load-status', 'Deteniendo...', 'warn');
+            logEvent('[LOAD TEST] Solicitud de detención recibida. Se completarán las solicitudes que ya están en curso.', 'warn');
+        }
+
+        // Inicialización y actualización periódica.
         cargarDatos();
         actualizarMetricas();
-        setInterval(actualizarMetricas, 3000);
-        setInterval(cargarDatos, 5000);
+        actualizarEstadoK8s();
+        setInterval(cargarDatos, 10000);
+        setInterval(actualizarMetricas, POLLING_MS);
+        setInterval(actualizarEstadoK8s, POLLING_MS);
     </script>
 </body>
 </html>
