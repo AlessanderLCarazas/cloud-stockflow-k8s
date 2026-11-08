@@ -419,6 +419,7 @@ def k8s_status():
                 "max_replicas": hpa.spec.max_replicas,
                 "current_replicas": hpa.status.current_replicas or 0,
                 "desired_replicas": hpa.status.desired_replicas or 0,
+                
                 "current_metrics": [
                     {
                         "type": metric.type,
@@ -428,14 +429,24 @@ def k8s_status():
                             if metric.resource and metric.resource.current
                             else None
                         ),
-                        "target": (
-                            metric.resource.target.average_utilization
-                            if metric.resource and metric.resource.target
-                            else None
+                        "target": next(
+                            (
+                                spec_metric.resource.target.average_utilization
+                                for spec_metric in (hpa.spec.metrics or [])
+                                if (
+                                    spec_metric.type == metric.type
+                                    and spec_metric.resource
+                                    and metric.resource
+                                    and spec_metric.resource.name == metric.resource.name
+                                    and spec_metric.resource.target
+                                )
+                            ),
+                            None
                         )
                     }
                     for metric in (hpa.status.current_metrics or [])
                 ]
+
             })
 
         # Eventos recientes
