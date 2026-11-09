@@ -25,5 +25,5 @@ jobs:
       - name: Comprobar acceso a CloudWatch
         run: |
           aws sts get-caller-identity > /dev/null
-          aws cloudwatch list-metrics --namespace AWS/EC2 --metric-name CPUUtilization --query 'length(Metrics)' --output text
+          aws cloudwatch list-metrics --namespace AWS/EC2 --metric-name CPUUtilization --output table
           echo "Conexion a AWS y permiso CloudWatch correctos"
