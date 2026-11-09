@@ -167,7 +167,29 @@
                     </p>
                 </section>
 
-                <!-- GRÁFICAS TEMPORALES EN VIVO -->
+                
+<section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+            <h3 class="text-lg font-bold text-slate-800">
+                <i class="fas fa-cloud mr-2 text-blue-600"></i>
+                Autoscaling de infraestructura EC2
+            </h3>
+            <p class="text-sm text-slate-500">
+                Estado del provisionador y administración automática de Workers
+            </p>
+        </div>
+        <span id="provisioner-status-badge"
+              class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+            Esperando datos...
+        </span>
+    </div>
+    <div id="provisioner-content" class="space-y-4">
+        <p class="text-sm text-slate-500">Consultando el estado del provisionador...</p>
+    </div>
+</section>
+
+<!-- GRÁFICAS TEMPORALES EN VIVO -->
                 <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-200">
                     <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
                         <div>
@@ -463,6 +485,7 @@
                 const hpas = Array.isArray(data.hpas) ? data.hpas : [];
                 const events = Array.isArray(data.events) ? data.events : [];
                 const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+            const provisioner = data.provisioner || {};
 
                 // Guardar una muestra temporal real en cada consulta a /api/k8s/status.
                 recordLiveMetrics(pods, podMetrics, hpas);
@@ -477,6 +500,7 @@
                 renderHpas(hpas);
                 renderEvents(events);
                 renderNodes(nodes);
+            renderProvisioner(provisioner);
                 detectClusterChanges(pods, deployments, hpas);
                 if (lastK8sError) logEvent('[K8S] La conexión con la API de Kubernetes se ha recuperado.', 'success');
                 lastK8sError = false;
@@ -677,6 +701,208 @@
             Object.values(liveCharts).forEach(chart => chart && chart.resize());
         }
 
+
+        function renderProvisioner(provisioner) {
+            const container = document.getElementById('provisioner-content');
+            const badge = document.getElementById('provisioner-status-badge');
+
+            if (!container || !badge) return;
+
+            const service = provisioner.service || {};
+            const config = provisioner.configuration || {};
+            const workers = provisioner.workers || {};
+            const instances = Array.isArray(workers.instances)
+                ? workers.instances : [];
+            const pending = Array.isArray(provisioner.pending_pods)
+                ? provisioner.pending_pods : [];
+            const events = Array.isArray(provisioner.events)
+                ? provisioner.events.slice(-8).reverse() : [];
+            const lastLaunch = provisioner.last_launch || {};
+
+            const status = provisioner.status || 'unavailable';
+            const active = status === 'ok' &&
+                service.active_state === 'active';
+
+            const statusText = active
+                ? 'Provisionador operativo'
+                : status === 'stale'
+                    ? 'Datos desactualizados'
+                    : status === 'forbidden'
+                        ? 'Sin permiso de lectura'
+                        : 'Estado no disponible';
+
+            badge.textContent = statusText;
+            badge.className = 'px-3 py-1 rounded-full text-xs font-semibold ' +
+                (active
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-amber-100 text-amber-700');
+
+            const formatDate = value => {
+                if (!value) return 'Sin registro';
+                const date = new Date(value);
+                return Number.isNaN(date.getTime())
+                    ? 'Fecha no disponible'
+                    : date.toLocaleString('es-PE');
+            };
+
+            const safe = value => escapeHtml(
+                value === null || value === undefined ? 'N/D' : String(value)
+            );
+
+            const workerCards = instances.length
+                ? instances.map(instance => `
+                    <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                        <div class="flex flex-wrap justify-between gap-2 mb-2">
+                            <span class="font-semibold text-sm text-slate-800">
+                                ${safe(instance.instance_id)}
+                            </span>
+                            <span class="text-xs px-2 py-1 rounded-full ${
+                                instance.kubernetes_ready
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-amber-100 text-amber-700'
+                            }">
+                                ${instance.kubernetes_ready ? 'K3s Ready' : 'Inicializando'}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                            <div>Tipo: <strong>${safe(instance.instance_type)}</strong></div>
+                            <div>EC2: <strong>${safe(instance.state)}</strong></div>
+                            <div>Zona: <strong>${safe(instance.availability_zone)}</strong></div>
+                            <div>IP privada: <strong>${safe(instance.private_ip)}</strong></div>
+                        </div>
+                    </div>
+                `).join('')
+                : '<p class="text-sm text-slate-500">No hay Workers administrados registrados.</p>';
+
+            const eventRows = events.length
+                ? events.map(event => `
+                    <div class="border-l-2 border-blue-400 pl-3 py-1">
+                        <p class="text-xs text-slate-500">${safe(formatDate(event.timestamp))}</p>
+                        <p class="text-sm text-slate-700 break-words">${safe(event.message)}</p>
+                    </div>
+                `).join('')
+                : '<p class="text-sm text-slate-500">Todavía no hay eventos registrados.</p>';
+
+            const pendingRows = pending.length
+                ? pending.map(pod => `
+                    <div class="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                        <p class="text-sm font-semibold text-amber-800">
+                            ${safe(pod.namespace)}/${safe(pod.name)}
+                        </p>
+                        <p class="text-xs text-amber-700 mt-1 break-words">
+                            ${safe(pod.message || pod.reason || 'Sin detalle')}
+                        </p>
+                    </div>
+                `).join('')
+                : '<p class="text-sm text-green-700">No hay Pods pendientes registrados por el publicador.</p>';
+
+            const total = Number(workers.total || 0);
+            const maximum = Number(workers.max || config.max_workers || 0);
+            const ready = Number(workers.ready || 0);
+            const initializing = Number(workers.initializing || 0);
+            const progress = maximum > 0
+                ? Math.min(100, (total / maximum) * 100) : 0;
+
+            container.innerHTML = `
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                        <p class="text-xs text-slate-500">Servicio</p>
+                        <p class="text-lg font-bold text-slate-800">
+                            ${safe(service.active_state || 'N/D')}
+                        </p>
+                        <p class="text-xs text-slate-500">
+                            ${safe(service.sub_state || 'N/D')}
+                        </p>
+                    </div>
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                        <p class="text-xs text-slate-500">Workers administrados</p>
+                        <p class="text-2xl font-bold text-slate-800">
+                            ${total}<span class="text-sm text-slate-500"> / ${maximum}</span>
+                        </p>
+                        <p class="text-xs text-slate-500">${ready} Ready · ${initializing} inicializando</p>
+                    </div>
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                        <p class="text-xs text-slate-500">Modo de operación</p>
+                        <p class="text-lg font-bold ${config.enable_launch ? 'text-green-700' : 'text-amber-700'}">
+                            ${config.enable_launch ? 'ACTIVO' : 'OBSERVACIÓN'}
+                        </p>
+                        <p class="text-xs text-slate-500">Revisión cada ${safe(config.poll_seconds)} s</p>
+                    </div>
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                        <p class="text-xs text-slate-500">Pods pendientes</p>
+                        <p class="text-2xl font-bold ${pending.length ? 'text-amber-600' : 'text-green-700'}">
+                            ${pending.length}
+                        </p>
+                        <p class="text-xs text-slate-500">Requieren programación</p>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-slate-500 mb-1">
+                        <span>Uso del límite de Workers</span>
+                        <span>${total}/${maximum}</span>
+                    </div>
+                    <div class="h-2 rounded-full bg-slate-200 overflow-hidden">
+                        <div class="h-full rounded-full bg-blue-600"
+                             style="width: ${progress}%"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-sm text-slate-800 mb-2">
+                            Workers EC2 administrados
+                        </h4>
+                        <div class="space-y-2">${workerCards}</div>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="font-semibold text-sm text-slate-800 mb-2">
+                                Última instancia EC2 creada
+                            </h4>
+                            <div class="rounded-lg bg-blue-50 border border-blue-100 p-3">
+                                <p class="font-semibold text-sm text-blue-900 break-all">
+                                    ${safe(lastLaunch.instance_id)}
+                                </p>
+                                <p class="text-xs text-blue-700 mt-1">
+                                    ${safe(formatDate(lastLaunch.timestamp))}
+                                </p>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-sm text-slate-800 mb-2">
+                                Última actualización
+                            </h4>
+                            <p class="text-xs text-slate-600">
+                                ${safe(formatDate(provisioner.updated_at))}
+                                · ${safe(provisioner.age_seconds)} segundos de antigüedad
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-sm text-slate-800 mb-2">
+                                Pods pendientes
+                            </h4>
+                            <div class="space-y-2">${pendingRows}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-sm text-slate-800 mb-2">
+                        Actividad reciente del provisionador
+                    </h4>
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                        ${eventRows}
+                    </div>
+                </div>
+
+                ${provisioner.message ? `
+                    <p class="text-xs text-amber-700">
+                        ${safe(provisioner.message)}
+                    </p>
+                ` : ''}
+            `;
+        }
 
         function renderNodes(nodes) {
             const container = document.getElementById('nodes-grid');

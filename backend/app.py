@@ -320,6 +320,67 @@ def k8s_status():
 
         namespace = "default"
 
+        # Estado del provisionador EC2: lectura de solo lectura desde ConfigMap.
+        provisioner_status = {
+            "status": "unavailable",
+            "message": "El publicador todavía no ha proporcionado datos."
+        }
+
+        try:
+            status_configmap = core.read_namespaced_config_map(
+                name="cloud-stockflow-provisioner-status",
+                namespace=namespace,
+                _request_timeout=5
+            )
+
+            raw_status = (status_configmap.data or {}).get("status")
+
+            if raw_status:
+                provisioner_status = json.loads(raw_status)
+
+                # Detectar datos antiguos si el publicador deja de funcionar.
+                updated_at = datetime.fromisoformat(
+                    provisioner_status["updated_at"]
+                )
+                current_time = (
+                    datetime.now(updated_at.tzinfo)
+                    if updated_at.tzinfo
+                    else datetime.utcnow()
+                )
+                age_seconds = max(
+                    0, int((current_time - updated_at).total_seconds())
+                )
+
+                provisioner_status["age_seconds"] = age_seconds
+                provisioner_status["status"] = (
+                    "ok" if age_seconds <= 90 else "stale"
+                )
+            else:
+                provisioner_status["message"] = (
+                    "El ConfigMap existe, pero no contiene datos."
+                )
+
+        except ApiException as e:
+            provisioner_status["status"] = (
+                "forbidden" if e.status == 403 else "unavailable"
+            )
+            provisioner_status["message"] = (
+                "No se pudo consultar el estado del provisionador."
+            )
+            app.logger.warning(
+                "No se pudo leer el ConfigMap del provisionador: %s",
+                e.reason
+            )
+
+        except Exception:
+            app.logger.exception(
+                "Error leyendo el estado del provisionador EC2"
+            )
+            provisioner_status["status"] = "unavailable"
+            provisioner_status["message"] = (
+                "Error procesando los datos del provisionador."
+            )
+
         # Pods
         pods_data = core.list_namespaced_pod(namespace)
         pods = []
@@ -740,7 +801,8 @@ def k8s_status():
             "pod_metrics": pod_metrics,
             "deployments": deployments,
             "hpas": hpas,
-            "events": events
+            "events": events,
+            "provisioner": provisioner_status
         })
 
     except ApiException as e:
