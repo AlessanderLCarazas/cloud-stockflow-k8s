@@ -293,17 +293,41 @@ def obtener_metricas():
 
 @app.route("/api/stress", methods=["GET"])
 def stress():
-    count = 0
+    import time
+    from flask import request
 
-    for i in range(15000000):
-        count += math.sqrt(i)
+    try:
+        duration_ms = int(request.args.get("duration_ms", "150"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "duration_ms debe ser un entero."}), 400
+
+    if not 10 <= duration_ms <= 250:
+        return jsonify({
+            "error": "duration_ms debe estar entre 10 y 250."
+        }), 400
+
+    cpu_start = time.thread_time()
+    wall_start = time.perf_counter()
+    deadline = cpu_start + duration_ms / 1000.0
+
+    value = 0.123456789
+    iterations = 0
+
+    while time.thread_time() < deadline:
+        value = math.sqrt(value + 1.000001)
+        iterations += 1
+
+    cpu_elapsed = (time.thread_time() - cpu_start) * 1000
+    wall_elapsed = (time.perf_counter() - wall_start) * 1000
 
     return jsonify({
-        "mensaje": "Pico de CPU finalizado",
-        "pod": socket.gethostname()
+        "mensaje": "Trabajo CPU completado",
+        "pod": socket.gethostname(),
+        "requested_cpu_ms": duration_ms,
+        "actual_cpu_ms": round(cpu_elapsed, 2),
+        "elapsed_ms": round(wall_elapsed, 2),
+        "iterations": iterations
     }), 200
-
-
 
 @app.route("/api/k8s/status", methods=["GET"])
 def k8s_status():
