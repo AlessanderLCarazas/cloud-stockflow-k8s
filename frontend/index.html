@@ -242,7 +242,7 @@
                         </div>
                         <span class="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">Parámetros configurables</span>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mt-5 items-end">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 mt-5 items-end">
                         <div>
                             <label for="load-vus" class="block text-xs font-semibold text-gray-600 mb-1">Usuarios virtuales / concurrencia</label>
                             <input id="load-vus" type="number" min="1" step="1" value="20" inputmode="numeric" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
@@ -254,6 +254,10 @@
                         <div>
                             <label for="load-duration" class="block text-xs font-semibold text-gray-600 mb-1">Duración (segundos)</label>
                             <input id="load-duration" type="number" min="1" step="1" value="60" inputmode="numeric" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label for="load-queue-limit" class="block text-xs font-semibold text-gray-600 mb-1">Capacidad máxima de cola</label>
+                            <input id="load-queue-limit" type="number" min="1" step="1" value="10000" inputmode="numeric" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                         </div>
                         <button onclick="iniciarPruebaCarga()" id="btn-start-load" class="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-4 py-2.5 rounded-lg transition text-sm"><i class="fa-solid fa-play mr-1"></i> Iniciar prueba</button>
                         <button onclick="detenerPruebaCarga()" id="btn-stop-load" disabled class="bg-slate-700 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2.5 rounded-lg transition text-sm"><i class="fa-solid fa-stop mr-1"></i> Detener</button>
@@ -267,7 +271,7 @@
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">RPS completadas</p><p id="load-rps" class="text-2xl font-bold text-blue-600">0.00</p></div>
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">En curso</p><p id="load-inflight" class="text-2xl font-bold text-amber-600">0</p></div>
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">En cola</p><p id="load-queued" class="text-2xl font-bold text-amber-600">0</p></div>
-                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Omitidas por límite</p><p id="load-skipped" class="text-2xl font-bold">0</p></div>
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Omitidas por capacidad de cola</p><p id="load-skipped" class="text-2xl font-bold">0</p></div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500"><span>Latencia media: <strong id="load-latency">-- ms</strong></span><span>Ritmo de envío: <strong id="load-issued-rps">0.00 req/s</strong></span></div>
 
@@ -343,7 +347,7 @@
             scheduled: 0,
             skipped: 0,
             queue: [],
-            maxQueued: 3000,
+            maxQueued: 10000,
             inFlight: 0,
             completed: 0,
             success: 0,
@@ -1464,6 +1468,7 @@
             document.getElementById("load-vus").disabled = false;
             document.getElementById("load-rps-target").disabled = false;
             document.getElementById("load-duration").disabled = false;
+            document.getElementById("load-queue-limit").disabled = false;
             document.getElementById("btn-start-load").disabled = false;
             document.getElementById("btn-stop-load").disabled = true;
 
@@ -1472,7 +1477,7 @@
             updateLoadStats();
 
             logEvent(
-                `[LOAD TEST] Finalizada: ${loadTest.scheduled} programadas, ${loadTest.issued} enviadas, ${loadTest.completed} completadas, ${loadTest.success} correctas, ${loadTest.errors} errores y ${loadTest.skipped} omitidas por límite.`,
+                `[LOAD TEST] Finalizada: ${loadTest.scheduled} programadas, ${loadTest.issued} enviadas, ${loadTest.completed} completadas, ${loadTest.success} correctas, ${loadTest.errors} errores y ${loadTest.skipped} omitidas al alcanzar la capacidad de cola.`,
                 "success"
             );
 
@@ -1492,6 +1497,9 @@
             const durationInput =
                 document.getElementById("load-duration");
 
+            const queueLimitInput =
+                document.getElementById("load-queue-limit");
+
             const concurrency = Number.parseInt(
                 concurrencyInput.value,
                 10
@@ -1507,48 +1515,48 @@
                 10
             );
 
-            if (
-                !Number.isSafeInteger(concurrency) ||
-                concurrency < 1 ||
-                concurrency > 100
-            ) {
-                logEvent(
-                    "La concurrencia debe estar entre 1 y 100.",
-                    "warn"
-                );
+            const queueLimit = Number.parseInt(
+                queueLimitInput.value,
+                10
+            );
+
+            if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
+                logEvent("La concurrencia debe ser un entero positivo.", "warn");
                 return;
             }
 
-            if (
-                !Number.isSafeInteger(targetRps) ||
-                targetRps < 1 ||
-                targetRps > 30
-            ) {
-                logEvent(
-                    "El RPS debe estar entre 1 y 30.",
-                    "warn"
-                );
+            if (!Number.isSafeInteger(targetRps) || targetRps < 1) {
+                logEvent("El RPS debe ser un entero positivo.", "warn");
                 return;
             }
 
-            if (
-                !Number.isSafeInteger(duration) ||
-                duration < 1 ||
-                duration > 120
-            ) {
-                logEvent(
-                    "La duración debe estar entre 1 y 120 segundos.",
-                    "warn"
-                );
+            if (!Number.isSafeInteger(duration) || duration < 1 ||
+                !Number.isSafeInteger(duration * 1000)) {
+                logEvent("La duración debe ser un entero positivo válido en segundos.", "warn");
                 return;
             }
 
-            if (targetRps * duration > loadTest.maxQueued) {
-                logEvent(
-                    "La prueba supera las 3000 solicitudes permitidas.",
-                    "warn"
-                );
+            if (!Number.isSafeInteger(queueLimit) || queueLimit < 1) {
+                logEvent("La capacidad de cola debe ser un entero positivo.", "warn");
                 return;
+            }
+
+            const plannedRequests = targetRps * duration;
+            if (!Number.isSafeInteger(plannedRequests)) {
+                logEvent("El total calculado de solicitudes supera el rango numérico seguro.", "warn");
+                return;
+            }
+
+            // No se bloquean las pruebas grandes, pero se pide confirmación para evitar
+            // iniciar accidentalmente una carga que consuma recursos o lance más EC2.
+            if (plannedRequests > 3000 || concurrency > 100) {
+                const accepted = window.confirm(
+                    `La prueba planifica hasta ${plannedRequests.toLocaleString()} solicitudes, ` +
+                    `con ${concurrency.toLocaleString()} en paralelo y una cola máxima de ` +
+                    `${queueLimit.toLocaleString()}. Puede aumentar el consumo de AWS y crear Workers EC2.\n\n` +
+                    "¿Deseas continuar?"
+                );
+                if (!accepted) return;
             }
 
             resetLoadStats();
@@ -1561,6 +1569,7 @@
 
             loadTest.maxInFlight = concurrency;
             loadTest.targetRps = targetRps;
+            loadTest.maxQueued = queueLimit;
             loadTest.nextLaunchAt = loadTest.startedAt;
             loadTest.workers = concurrency;
 
@@ -1587,12 +1596,12 @@
             );
 
             logEvent(
-                `[LOAD TEST] Inicio: máximo ${concurrency} simultáneas, ${targetRps} llegadas/s durante ${duration}s. CPU: 150ms por solicitud.`,
+                `[LOAD TEST] Inicio: máximo ${concurrency} simultáneas, ${targetRps} llegadas/s durante ${duration}s. Cola: ${queueLimit}. CPU: 150ms por solicitud.`,
                 "warn"
             );
 
             logEvent(
-                "[LOAD TEST] Las llegadas se conservan en una cola acotada.",
+                "[LOAD TEST] Las llegadas se conservan en una cola con capacidad configurable; no hay un tope fijo de RPS ni de duración.",
                 "info"
             );
 
