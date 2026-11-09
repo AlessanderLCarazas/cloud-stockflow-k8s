@@ -167,7 +167,7 @@
                     </p>
                 </section>
 
-                
+
 <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
@@ -259,13 +259,14 @@
                         <button onclick="detenerPruebaCarga()" id="btn-stop-load" disabled class="bg-slate-700 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-4 py-2.5 rounded-lg transition text-sm"><i class="fa-solid fa-stop mr-1"></i> Detener</button>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 mt-3 text-xs text-gray-500"><span id="load-status" class="inline-flex px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-semibold">Inactiva</span><span>Tiempo: <strong id="load-elapsed">0 s</strong></span><span>Objetivo: <strong id="load-rps-target-value">20 req/s</strong></span></div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mt-5">
+                    <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 mt-5">
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Solicitudes iniciadas</p><p id="load-issued" class="text-2xl font-bold">0</p></div>
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Completadas</p><p id="load-completed" class="text-2xl font-bold">0</p></div>
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Correctas</p><p id="load-success" class="text-2xl font-bold text-emerald-600">0</p></div>
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Errores</p><p id="load-errors" class="text-2xl font-bold text-red-600">0</p></div>
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">RPS completadas</p><p id="load-rps" class="text-2xl font-bold text-blue-600">0.00</p></div>
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">En curso</p><p id="load-inflight" class="text-2xl font-bold text-amber-600">0</p></div>
+                        <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">En cola</p><p id="load-queued" class="text-2xl font-bold text-amber-600">0</p></div>
                         <div class="bg-slate-50 rounded-xl p-3"><p class="text-xs text-gray-500">Omitidas por límite</p><p id="load-skipped" class="text-2xl font-bold">0</p></div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500"><span>Latencia media: <strong id="load-latency">-- ms</strong></span><span>Ritmo de envío: <strong id="load-issued-rps">0.00 req/s</strong></span></div>
@@ -339,7 +340,10 @@
             schedulerId: null,
             statsIntervalId: null,
             issued: 0,
+            scheduled: 0,
             skipped: 0,
+            queue: [],
+            maxQueued: 3000,
             inFlight: 0,
             completed: 0,
             success: 0,
@@ -1217,161 +1221,400 @@
 
         function resetLoadStats() {
             loadTest.issued = 0;
+            loadTest.scheduled = 0;
             loadTest.skipped = 0;
+            loadTest.queue = [];
             loadTest.completed = 0;
             loadTest.success = 0;
             loadTest.errors = 0;
             loadTest.latencyTotal = 0;
             loadTest.inFlight = 0;
+
             updateLoadStats();
         }
+
 
         function updateLoadStats() {
             const elapsedSeconds = loadTest.startedAt
                 ? Math.max((Date.now() - loadTest.startedAt) / 1000, 0.1)
                 : 0;
-            const completedRps = elapsedSeconds > 0 ? loadTest.completed / elapsedSeconds : 0;
-            const issuedRps = elapsedSeconds > 0 ? loadTest.issued / elapsedSeconds : 0;
-            const averageLatency = loadTest.completed > 0 ? loadTest.latencyTotal / loadTest.completed : 0;
-            document.getElementById('load-issued').textContent = loadTest.issued;
-            document.getElementById('load-completed').textContent = loadTest.completed;
-            document.getElementById('load-success').textContent = loadTest.success;
-            document.getElementById('load-errors').textContent = loadTest.errors;
-            document.getElementById('load-rps').textContent = completedRps.toFixed(2);
-            document.getElementById('load-inflight').textContent = loadTest.inFlight;
-            document.getElementById('load-skipped').textContent = loadTest.skipped;
-            document.getElementById('load-issued-rps').textContent = `${issuedRps.toFixed(2)} req/s`;
-            document.getElementById('load-latency').textContent = loadTest.completed ? `${averageLatency.toFixed(0)} ms` : '-- ms';
-            document.getElementById('load-elapsed').textContent = `${Math.floor(elapsedSeconds)} s`;
+
+            const completedRps = elapsedSeconds > 0
+                ? loadTest.completed / elapsedSeconds
+                : 0;
+
+            const averageLatency = loadTest.completed > 0
+                ? loadTest.latencyTotal / loadTest.completed
+                : 0;
+
+            const setText = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            };
+
+            setText("load-issued", loadTest.issued);
+            setText("load-completed", loadTest.completed);
+            setText("load-success", loadTest.success);
+            setText("load-errors", loadTest.errors);
+            setText("load-rps", completedRps.toFixed(2));
+            setText("load-inflight", loadTest.inFlight);
+            setText("load-queued", loadTest.queue.length);
+            setText("load-skipped", loadTest.skipped);
+
+            setText(
+                "load-latency",
+                loadTest.completed
+                    ? `${averageLatency.toFixed(0)} ms`
+                    : "-- ms"
+            );
+
+            setText("load-elapsed", `${Math.floor(elapsedSeconds)} s`);
+            setText("load-issued-rps", `${loadTest.targetRps} req/s`);
         }
+
 
         async function enviarSolicitudStress(sequence) {
             const requestStarted = performance.now();
+            const controller = new AbortController();
+
+            const timeoutId = setTimeout(
+                () => controller.abort(),
+                30000
+            );
+
             loadTest.issued++;
             loadTest.inFlight++;
+
+            updateLoadStats();
+
             try {
-                const response = await fetch(`${API_URL}/api/stress?load_run=${loadTest.startedAt}&n=${sequence}`, {
-                    method: 'GET',
-                    cache: 'no-store',
-                    headers: { 'Cache-Control': 'no-cache' }
-                });
+                const response = await fetch(
+                    `${API_URL}/api/stress?load_run=${loadTest.startedAt}&n=${sequence}&duration_ms=150`,
+                    {
+                        method: "GET",
+                        cache: "no-store",
+                        headers: {
+                            "Cache-Control": "no-cache"
+                        },
+                        signal: controller.signal
+                    }
+                );
+
                 let data = {};
-                try { data = await response.json(); } catch (_) { /* Se valida también el estado HTTP. */ }
-                if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+
+                try {
+                    data = await response.json();
+                } catch (_) {}
+
+                if (!response.ok) {
+                    throw new Error(
+                        data.error || `HTTP ${response.status}`
+                    );
+                }
+
                 loadTest.success++;
+
             } catch (error) {
                 loadTest.errors++;
-                if (loadTest.errors <= 5) logEvent(`[LOAD TEST] Solicitud ${sequence}: ${error.message}`, 'error');
+
+                const message = error.name === "AbortError"
+                    ? "Tiempo de espera agotado (30 s)"
+                    : error.message;
+
+                if (loadTest.errors <= 5) {
+                    logEvent(
+                        `[LOAD TEST] Solicitud ${sequence}: ${message}`,
+                        "error"
+                    );
+                }
+
             } finally {
-                loadTest.latencyTotal += performance.now() - requestStarted;
+                clearTimeout(timeoutId);
+
+                loadTest.latencyTotal +=
+                    performance.now() - requestStarted;
+
                 loadTest.completed++;
-                loadTest.inFlight = Math.max(0, loadTest.inFlight - 1);
-                if (loadTest.stopRequested && loadTest.inFlight === 0) finalizarPruebaCarga();
+
+                loadTest.inFlight = Math.max(
+                    0,
+                    loadTest.inFlight - 1
+                );
+
+                despacharSolicitudesEnCola();
             }
         }
+
+
+        // ==================================================
+        // DESPACHAR SOLICITUDES DESDE LA COLA
+        // ==================================================
+
+        function despacharSolicitudesEnCola() {
+            while (
+                loadTest.running &&
+                loadTest.inFlight < loadTest.maxInFlight &&
+                loadTest.queue.length > 0
+            ) {
+                const sequence = loadTest.queue.shift();
+
+                void enviarSolicitudStress(sequence);
+            }
+
+            updateLoadStats();
+
+            if (
+                loadTest.stopRequested &&
+                loadTest.inFlight === 0 &&
+                loadTest.queue.length === 0
+            ) {
+                finalizarPruebaCarga();
+            }
+        }
+
+
+        // ==================================================
+        // PROGRAMAR NUEVAS LLEGADAS
+        // ==================================================
 
         function programarSolicitudCarga() {
-            if (!loadTest.running || loadTest.stopRequested) return;
-            const now = Date.now();
-            if (now >= loadTest.endAt) {
-                solicitarFinPrueba('Duración alcanzada');
+            if (!loadTest.running || loadTest.stopRequested) {
                 return;
             }
-            if (now < loadTest.nextLaunchAt) return;
 
-            if (loadTest.inFlight < loadTest.maxInFlight) {
-                const sequence = loadTest.issued + loadTest.skipped + 1;
-                void enviarSolicitudStress(sequence);
-            } else {
-                loadTest.skipped++;
+            const now = Date.now();
+            const interval = 1000 / loadTest.targetRps;
+
+            while (
+                loadTest.nextLaunchAt < loadTest.endAt &&
+                loadTest.nextLaunchAt <= now
+            ) {
+                if (loadTest.queue.length >= loadTest.maxQueued) {
+                    loadTest.skipped++;
+                } else {
+                    loadTest.scheduled++;
+                    loadTest.queue.push(loadTest.scheduled);
+                }
+
+                loadTest.nextLaunchAt += interval;
             }
-            // Ritmo de llegada controlado: por ejemplo, 6 req/s equivale a una salida cada 167 ms.
-            loadTest.nextLaunchAt = now + (1000 / loadTest.targetRps);
+
+            despacharSolicitudesEnCola();
+
+            if (
+                now >= loadTest.endAt &&
+                !loadTest.stopRequested
+            ) {
+                solicitarFinPrueba("Duración alcanzada");
+            }
         }
+
 
         function solicitarFinPrueba(reason) {
-            if (!loadTest.running || loadTest.stopRequested) return;
+            if (!loadTest.running || loadTest.stopRequested) {
+                return;
+            }
+
             loadTest.stopRequested = true;
-            if (loadTest.schedulerId) clearInterval(loadTest.schedulerId);
+
+            if (loadTest.schedulerId) {
+                clearInterval(loadTest.schedulerId);
+            }
+
             loadTest.schedulerId = null;
-            setBadge('load-status', 'Esperando solicitudes activas', 'warn');
-            logEvent(`[LOAD TEST] ${reason}. No se enviarán más solicitudes; esperando ${loadTest.inFlight} en curso.`, 'warn');
-            if (loadTest.inFlight === 0) finalizarPruebaCarga();
+
+            setBadge(
+                "load-status",
+                "Drenando solicitudes pendientes",
+                "warn"
+            );
+
+            logEvent(
+                `[LOAD TEST] ${reason}. En cola: ${loadTest.queue.length}; activas: ${loadTest.inFlight}.`,
+                "warn"
+            );
+
+            despacharSolicitudesEnCola();
         }
 
+
         function finalizarPruebaCarga() {
-            if (!loadTest.running || loadTest.inFlight > 0) return;
-            if (loadTest.schedulerId) clearInterval(loadTest.schedulerId);
-            if (loadTest.statsIntervalId) clearInterval(loadTest.statsIntervalId);
+            if (
+                !loadTest.running ||
+                loadTest.inFlight > 0 ||
+                loadTest.queue.length > 0
+            ) {
+                return;
+            }
+
+            if (loadTest.schedulerId) {
+                clearInterval(loadTest.schedulerId);
+            }
+
+            if (loadTest.statsIntervalId) {
+                clearInterval(loadTest.statsIntervalId);
+            }
+
             loadTest.schedulerId = null;
             loadTest.statsIntervalId = null;
             loadTest.running = false;
             loadTest.stopRequested = true;
             loadTest.workers = 0;
-            document.getElementById('load-vus').disabled = false;
-            document.getElementById('load-rps-target').disabled = false;
-            document.getElementById('load-duration').disabled = false;
-            document.getElementById('btn-start-load').disabled = false;
-            document.getElementById('btn-stop-load').disabled = true;
-            setBadge('load-status', 'Finalizada', 'good');
+
+            document.getElementById("load-vus").disabled = false;
+            document.getElementById("load-rps-target").disabled = false;
+            document.getElementById("load-duration").disabled = false;
+            document.getElementById("btn-start-load").disabled = false;
+            document.getElementById("btn-stop-load").disabled = true;
+
+            setBadge("load-status", "Finalizada", "good");
+
             updateLoadStats();
-            logEvent(`[LOAD TEST] Finalizada: ${loadTest.issued} iniciadas, ${loadTest.completed} completadas, ${loadTest.success} correctas, ${loadTest.errors} errores y ${loadTest.skipped} omitidas por límite.`, 'success');
+
+            logEvent(
+                `[LOAD TEST] Finalizada: ${loadTest.scheduled} programadas, ${loadTest.issued} enviadas, ${loadTest.completed} completadas, ${loadTest.success} correctas, ${loadTest.errors} errores y ${loadTest.skipped} omitidas por límite.`,
+                "success"
+            );
+
             actualizarEstadoK8s(true);
         }
 
+
         async function iniciarPruebaCarga() {
             if (loadTest.running) return;
-            const concurrencyInput = document.getElementById('load-vus');
-            const rpsInput = document.getElementById('load-rps-target');
-            const durationInput = document.getElementById('load-duration');
-            const concurrency = Number.parseInt(concurrencyInput.value, 10);
-            const targetRps = Number.parseInt(rpsInput.value, 10);
-            const duration = Number.parseInt(durationInput.value, 10);
 
-            if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
-                logEvent('Indica un número entero de usuarios virtuales mayor que cero.', 'warn');
+            const concurrencyInput =
+                document.getElementById("load-vus");
+
+            const rpsInput =
+                document.getElementById("load-rps-target");
+
+            const durationInput =
+                document.getElementById("load-duration");
+
+            const concurrency = Number.parseInt(
+                concurrencyInput.value,
+                10
+            );
+
+            const targetRps = Number.parseInt(
+                rpsInput.value,
+                10
+            );
+
+            const duration = Number.parseInt(
+                durationInput.value,
+                10
+            );
+
+            if (
+                !Number.isSafeInteger(concurrency) ||
+                concurrency < 1 ||
+                concurrency > 100
+            ) {
+                logEvent(
+                    "La concurrencia debe estar entre 1 y 100.",
+                    "warn"
+                );
                 return;
             }
-            if (!Number.isSafeInteger(targetRps) || targetRps < 1) {
-                logEvent('Indica un número entero de solicitudes por segundo mayor que cero.', 'warn');
+
+            if (
+                !Number.isSafeInteger(targetRps) ||
+                targetRps < 1 ||
+                targetRps > 30
+            ) {
+                logEvent(
+                    "El RPS debe estar entre 1 y 30.",
+                    "warn"
+                );
                 return;
             }
-            if (!Number.isSafeInteger(duration) || duration < 1) {
-                logEvent('Indica una duración en segundos mayor que cero.', 'warn');
+
+            if (
+                !Number.isSafeInteger(duration) ||
+                duration < 1 ||
+                duration > 120
+            ) {
+                logEvent(
+                    "La duración debe estar entre 1 y 120 segundos.",
+                    "warn"
+                );
+                return;
+            }
+
+            if (targetRps * duration > loadTest.maxQueued) {
+                logEvent(
+                    "La prueba supera las 3000 solicitudes permitidas.",
+                    "warn"
+                );
                 return;
             }
 
             resetLoadStats();
+
             loadTest.running = true;
             loadTest.stopRequested = false;
             loadTest.startedAt = Date.now();
-            loadTest.endAt = loadTest.startedAt + duration * 1000;
+            loadTest.endAt =
+                loadTest.startedAt + duration * 1000;
+
             loadTest.maxInFlight = concurrency;
             loadTest.targetRps = targetRps;
-            loadTest.nextLaunchAt = Date.now();
+            loadTest.nextLaunchAt = loadTest.startedAt;
             loadTest.workers = concurrency;
 
             concurrencyInput.disabled = true;
             rpsInput.disabled = true;
             durationInput.disabled = true;
-            document.getElementById('btn-start-load').disabled = true;
-            document.getElementById('btn-stop-load').disabled = false;
-            document.getElementById('load-rps-target-value').textContent = `${targetRps} req/s`;
-            setBadge('load-status', 'En ejecución', 'warn');
-            logEvent(`[LOAD TEST] Inicio: máximo ${concurrency} solicitudes simultáneas, objetivo ${targetRps} nuevas solicitudes/s durante ${duration}s.`, 'warn');
-            logEvent('[LOAD TEST] El envío se limita por concurrencia; las llegadas que superen el límite se cuentan como omitidas.', 'info');
 
-            // El programador se ajusta al ritmo elegido; no queda limitado a 40 intentos/s.
-            // El navegador y la red siguen determinando el máximo RPS físicamente alcanzable.
-            const schedulerIntervalMs = Math.max(1, Math.floor(1000 / targetRps));
-            loadTest.schedulerId = setInterval(() => {
-                programarSolicitudCarga();
-                if (Date.now() >= loadTest.endAt && !loadTest.stopRequested) {
-                    solicitarFinPrueba('Duración alcanzada');
-                }
-            }, schedulerIntervalMs);
-            loadTest.statsIntervalId = setInterval(updateLoadStats, 250);
+            document.getElementById(
+                "btn-start-load"
+            ).disabled = true;
+
+            document.getElementById(
+                "btn-stop-load"
+            ).disabled = false;
+
+            document.getElementById(
+                "load-rps-target-value"
+            ).textContent = `${targetRps} req/s`;
+
+            setBadge(
+                "load-status",
+                "En ejecución",
+                "warn"
+            );
+
+            logEvent(
+                `[LOAD TEST] Inicio: máximo ${concurrency} simultáneas, ${targetRps} llegadas/s durante ${duration}s. CPU: 150ms por solicitud.`,
+                "warn"
+            );
+
+            logEvent(
+                "[LOAD TEST] Las llegadas se conservan en una cola acotada.",
+                "info"
+            );
+
+            // Primera llegada inmediata.
+            programarSolicitudCarga();
+
+            const schedulerIntervalMs = Math.max(
+                5,
+                Math.floor(500 / targetRps)
+            );
+
+            loadTest.schedulerId = setInterval(
+                programarSolicitudCarga,
+                schedulerIntervalMs
+            );
+
+            loadTest.statsIntervalId = setInterval(
+                updateLoadStats,
+                250
+            );
         }
+
 
         function detenerPruebaCarga() {
             solicitarFinPrueba('Detención solicitada por el operador');
