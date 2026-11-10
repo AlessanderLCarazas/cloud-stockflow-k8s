@@ -1,12 +1,4 @@
-# Cloud StockFlow -- Commit profesional
-
-**Tipo:** feat
-
-**Mensaje de commit:**
-
-``` text
-feat: implement cloud-native StockFlow platform with Kubernetes autoscaling and AWS infrastructure
-```
+# Cloud StockFlow
 
 ## Descripción
 
