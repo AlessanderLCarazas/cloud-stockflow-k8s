@@ -1,117 +1,107 @@
-# Cloud StockFlow K8s
+# Cloud StockFlow -- Commit profesional
 
-Aplicación demo de banca por internet con frontend estático, backend en Flask y despliegue en Kubernetes.
+**Tipo:** feat
+
+**Mensaje de commit:**
+
+``` text
+feat: implement cloud-native StockFlow platform with Kubernetes autoscaling and AWS infrastructure
+```
 
 ## Descripción
 
-El proyecto simula un portal bancario con:
+Implement a cloud-native banking inventory management platform using
+AWS, Docker, Kubernetes (K3s) and a custom EC2 provisioning mechanism.
 
-- consulta de saldo y movimientos recientes
-- transferencias entre cuentas
-- modo local con SQLite
-- modo Kubernetes con PostgreSQL
-- interfaz web ligera servida con Nginx
+### Infrastructure and Cloud Architecture
 
-## Arquitectura
+-   Provision AWS infrastructure using Terraform.
+-   Configure EC2 instances to host the K3s Kubernetes cluster.
+-   Deploy a distributed architecture with one Control Plane and
+    multiple Worker nodes.
+-   Configure Amazon ECR repositories for backend and frontend container
+    images.
+-   Configure AWS networking and security groups.
 
-- **Backend**: Flask en `backend/app.py`
-- **Frontend**: HTML estático en `frontend/index.html`
-- **Base de datos local**: SQLite (`backend/banco_local.db`)
-- **Base de datos en K8s**: PostgreSQL
-- **Orquestación**: manifiestos en `k8s/`
+### Containerization and Deployment
 
-## Requisitos
+-   Containerize backend and frontend applications using Docker.
+-   Implement automated CI/CD pipeline with GitHub Actions.
+-   Execute backend unit tests using pytest before deployment.
+-   Build and publish Docker images to Amazon ECR.
+-   Automate remote deployment through SSH.
+-   Configure Kubernetes imagePullSecrets for private ECR image access.
+-   Apply Kubernetes manifests and restart application Deployments.
 
-- Python 3.10+
-- Docker
-- Kubernetes y `kubectl` para el despliegue en clúster
+### Kubernetes Orchestration
 
-## Ejecución local
+-   Deploy PostgreSQL, backend and frontend workloads.
+-   Configure Kubernetes Deployments and Services.
+-   Expose application services through NodePort.
+-   Implement Horizontal Pod Autoscaling (HPA) for backend workloads.
+-   Configure CPU-based scaling with a 50% utilization target.
+-   Define minimum and maximum backend replicas.
 
-### 1. Backend
+### Infrastructure Autoscaling
 
-```bash
-cd backend
-pip install -r requirements.txt
-python app.py
+-   Implement a custom Python-based EC2 provisioning service.
+-   Monitor Kubernetes Pods and detect scheduling failures caused by
+    insufficient capacity.
+-   Integrate the provisioner with AWS to launch additional EC2 Worker
+    instances.
+-   Configure worker limits, monitoring intervals and cooldown periods.
+-   Register additional capacity into the K3s cluster.
+
+### Monitoring and Observability
+
+-   Implement Kubernetes status monitoring through the backend API.
+-   Expose information about Nodes, Pods, Deployments, HPA and
+    Kubernetes events.
+-   Develop a real-time monitoring dashboard.
+-   Implement automatic dashboard refresh.
+-   Display infrastructure resource utilization and cluster status.
+
+### Stress Testing and Performance Evaluation
+
+-   Integrate configurable load testing using Locust.
+-   Implement application stress testing endpoints.
+-   Evaluate backend scaling behavior under simulated workloads.
+-   Monitor CPU, memory, replicas and Kubernetes scheduling events.
+
+### Database
+
+-   Integrate PostgreSQL as the persistent database.
+-   Deploy PostgreSQL within Kubernetes.
+-   Preserve database state and support database backup and restoration.
+
+This implementation establishes an automated cloud-native platform with
+container orchestration, application-level autoscaling, infrastructure
+provisioning, continuous deployment and operational monitoring.
+
+------------------------------------------------------------------------
+
+## Antes de publicar el commit
+
+Comprueba primero los cambios:
+
+``` bash
+git status
 ```
 
-El backend queda disponible en `http://localhost:3000`.
+Agrega únicamente los archivos que deseas incluir:
 
-### 2. Frontend
-
-Abre `frontend/index.html` en el navegador o sírvelo con Nginx/Docker.
-
-## Docker
-
-### Backend
-
-```bash
-cd backend
-docker build -t mi-banco-backend:v1 .
+``` bash
+git add .
 ```
 
-### Frontend
+Crea el commit:
 
-```bash
-cd frontend
-docker build -t mi-banco-frontend:v1 .
+``` bash
+git commit -m "feat: implement cloud-native StockFlow platform with Kubernetes autoscaling and AWS infrastructure"
 ```
 
-## Kubernetes
+Publica los cambios en la rama `master`:
 
-Los manifiestos están en `k8s/`:
-
-- `1-postgres.yaml`
-- `2-backend.yaml`
-- `3-frontend.yaml`
-
-Aplicación:
-
-```bash
-kubectl apply -f k8s/1-postgres.yaml
-kubectl apply -f k8s/2-backend.yaml
-kubectl apply -f k8s/3-frontend.yaml
+``` bash
+git push origin master
 ```
-
-### Acceso
-
-- **Frontend**: NodePort `30080`
-- **Backend**: Service interno en `3000`
-- **PostgreSQL**: Service interno en `5432`
-
-## API
-
-### `GET /api/cuenta`
-
-Devuelve:
-
-- saldo actual
-- últimos movimientos
-- nombre del pod que respondió
-- motor de base de datos en uso
-
-### `POST /api/transfer`
-
-Body:
-
-```json
-{
-  "destino": "123456789",
-  "monto": 100
-}
-```
-
-### `GET /api/stress`
-
-Ejecuta una carga de CPU para pruebas de escalado.
-
-## Comportamiento por entorno
-
-- Si no existe `DB_HOST`, el backend usa **SQLite local**
-- Si existe `DB_HOST`, el backend usa **PostgreSQL**
-
-## Notas
-
-- El frontend llama al backend en `http://localhost:3000`
-- En Kubernetes, las imágenes usan `imagePullPolicy: Never`, así que deben construirse localmente con los tags definidos en los manifiestos
