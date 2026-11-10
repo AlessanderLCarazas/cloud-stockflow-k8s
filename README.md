@@ -77,31 +77,3 @@ AWS, Docker, Kubernetes (K3s) and a custom EC2 provisioning mechanism.
 This implementation establishes an automated cloud-native platform with
 container orchestration, application-level autoscaling, infrastructure
 provisioning, continuous deployment and operational monitoring.
-
-------------------------------------------------------------------------
-
-## Antes de publicar el commit
-
-Comprueba primero los cambios:
-
-``` bash
-git status
-```
-
-Agrega únicamente los archivos que deseas incluir:
-
-``` bash
-git add .
-```
-
-Crea el commit:
-
-``` bash
-git commit -m "feat: implement cloud-native StockFlow platform with Kubernetes autoscaling and AWS infrastructure"
-```
-
-Publica los cambios en la rama `master`:
-
-``` bash
-git push origin master
-```
